@@ -1,0 +1,7 @@
+# Data file
+*.root
+*.tar.gz
+*.json.bz2
+*.h5
+*.hdf5
+data/

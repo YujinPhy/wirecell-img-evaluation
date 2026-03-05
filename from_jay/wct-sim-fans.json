@@ -1,0 +1,1188 @@
+[
+   {
+      "data": {
+         "apps": [
+            "Pgrapher"
+         ],
+         "plugins": [
+            "WireCellGen",
+            "WireCellPgraph",
+            "WireCellSio",
+            "WireCellSigProc",
+            "WireCellRoot",
+            "WireCellTbb",
+            "WireCellImg"
+         ]
+      },
+      "type": "wire-cell"
+   },
+   {
+      "data": {
+         "step_size": 0.10000000000000001,
+         "tracks": [
+            {
+               "charge": -500,
+               "ray": {
+                  "head": {
+                     "x": -500,
+                     "y": 500,
+                     "z": 500
+                  },
+                  "tail": {
+                     "x": 681.98511713310108,
+                     "y": 500,
+                     "z": 1000
+                  }
+               },
+               "time": 0
+            }
+         ]
+      },
+      "name": "trackdepos",
+      "type": "TrackDepos"
+   },
+   {
+      "data": {
+         "generator": "default",
+         "seeds": [
+            0,
+            1,
+            2,
+            3,
+            4
+         ]
+      },
+      "type": "Random"
+   },
+   {
+      "data": {
+         "DL": 3.9999999999999998e-07,
+         "DT": 8.8000000000000015e-07,
+         "ar39activity": 1.6021764870000004e-34,
+         "density": 8669456899850258432,
+         "drift_speed": 0.0014730000000000001,
+         "fluctuate": true,
+         "lifetime": 1000000000,
+         "rng": "Random",
+         "time_offset": 0,
+         "xregions": [
+            {
+               "anode": -3358.3499999999999,
+               "cathode": -25.400000000000091,
+               "response": -3191.6374999999998
+            },
+            {
+               "anode": 3358.3499999999999,
+               "cathode": 25.400000000000091,
+               "response": 3191.6374999999998
+            }
+         ]
+      },
+      "type": "Drifter"
+   },
+   {
+      "data": {
+         "gate": [
+            -372878.47929395788,
+            2750121.5207060422
+         ]
+      },
+      "name": "bagger",
+      "type": "DepoBagger"
+   },
+   {
+      "data": {
+         "multiplicity": 1,
+         "tag_rules": {
+            "frame": {
+               ".*": "framefanin"
+            },
+            "trace": {
+               "dnnsp6": [
+                  "dnnsp6"
+               ],
+               "gauss6": [
+                  "gauss6"
+               ],
+               "threshold6": [
+                  "threshold6"
+               ],
+               "wiener6": [
+                  "wiener6"
+               ]
+            }
+         }
+      },
+      "name": "reco-bdf",
+      "type": "DepoSetFanout"
+   },
+   {
+      "data": {
+         "multiplicity": 2
+      },
+      "name": "dsout-bdf-0",
+      "type": "DepoSetFanout"
+   },
+   {
+      "data": {
+         "filename": "protodunevd-wires-larsoft-v3.json.bz2"
+      },
+      "type": "WireSchemaFile"
+   },
+   {
+      "data": {
+         "faces": [
+            {
+               "anode": 3358.3499999999999,
+               "cathode": 25.400000000000091,
+               "response": 3191.6374999999998
+            },
+            {
+               "anode": 3358.3499999999999,
+               "cathode": 25.400000000000091,
+               "response": 3191.6374999999998
+            }
+         ],
+         "ident": 6,
+         "nimpacts": 10,
+         "wire_schema": "WireSchemaFile"
+      },
+      "name": "anode6",
+      "type": "AnodePlane"
+   },
+   {
+      "type": "FftwDFT"
+   },
+   {
+      "data": {
+         "filename": "protodunevd_FR_3view_speed1d55.json.bz2"
+      },
+      "name": "field1",
+      "type": "FieldResponse"
+   },
+   {
+      "data": {
+         "filename": "dunevd-coldbox-elecresp-top-psnorm_400.json.bz2",
+         "gain": 2.2430470818000003e-12,
+         "nticks": 6246,
+         "postgain": 1.52,
+         "shaping": 2000,
+         "tick": 500
+      },
+      "name": "elecresp1",
+      "type": "JsonElecResponse"
+   },
+   {
+      "data": {
+         "nticks": 6246,
+         "tick": 500,
+         "width": 1100000
+      },
+      "type": "RCResponse"
+   },
+   {
+      "data": {
+         "magnitude": 1,
+         "nticks": 6246,
+         "start": 0,
+         "tick": 500,
+         "time_smear": 1000
+      },
+      "type": "ResponseSys"
+   },
+   {
+      "data": {
+         "dft": "FftwDFT",
+         "field_response": "FieldResponse:field1",
+         "long_padding": 1500000,
+         "long_responses": [ ],
+         "nticks": 6246,
+         "overall_short_padding": 200000,
+         "plane": 0,
+         "short_responses": [
+            "JsonElecResponse:elecresp1"
+         ],
+         "tick": 500
+      },
+      "name": "PIRfield1plane0",
+      "type": "PlaneImpactResponse"
+   },
+   {
+      "data": {
+         "dft": "FftwDFT",
+         "field_response": "FieldResponse:field1",
+         "long_padding": 1500000,
+         "long_responses": [ ],
+         "nticks": 6246,
+         "overall_short_padding": 200000,
+         "plane": 1,
+         "short_responses": [
+            "JsonElecResponse:elecresp1"
+         ],
+         "tick": 500
+      },
+      "name": "PIRfield1plane1",
+      "type": "PlaneImpactResponse"
+   },
+   {
+      "data": {
+         "dft": "FftwDFT",
+         "field_response": "FieldResponse:field1",
+         "long_padding": 1500000,
+         "long_responses": [ ],
+         "nticks": 6246,
+         "overall_short_padding": 200000,
+         "plane": 2,
+         "short_responses": [
+            "JsonElecResponse:elecresp1"
+         ],
+         "tick": 500
+      },
+      "name": "PIRfield1plane2",
+      "type": "PlaneImpactResponse"
+   },
+   {
+      "data": {
+         "anode": "AnodePlane:anode6",
+         "dft": "FftwDFT",
+         "drift_speed": 0.0014730000000000001,
+         "first_frame_number": 100,
+         "fluctuate": true,
+         "nsigma": 3,
+         "pirs": [
+            "PlaneImpactResponse:PIRfield1plane0",
+            "PlaneImpactResponse:PIRfield1plane1",
+            "PlaneImpactResponse:PIRfield1plane2"
+         ],
+         "readout_time": 3123000,
+         "rng": "Random",
+         "start_time": -372878.47929395788,
+         "tick": 500
+      },
+      "name": "depotransform-anode6",
+      "type": "DepoTransform"
+   },
+   {
+      "data": {
+         "anode": "AnodePlane:anode6",
+         "fill": 0,
+         "nticks": 6000,
+         "tags": [ ],
+         "tbin": 246,
+         "toffset": 0
+      },
+      "name": "reframer-anode6",
+      "type": "Reframer"
+   },
+   {
+      "data": {
+         "anode": "AnodePlane:anode6",
+         "chanstat": "",
+         "dft": "FftwDFT",
+         "nsamples": 6000,
+         "period": 500,
+         "spectra_file": "pdvd-top-noise-spectra-v2.json.bz2",
+         "wire_length_scale": 10
+      },
+      "name": "empericalnoise-anode6",
+      "type": "EmpiricalNoiseModel"
+   },
+   {
+      "data": {
+         "dft": "FftwDFT",
+         "model": "EmpiricalNoiseModel:empericalnoise-anode6",
+         "nsamples": 6000,
+         "replacement_percentage": 0.02,
+         "rng": "Random"
+      },
+      "name": "addnoise-empericalnoise-anode6",
+      "type": "AddNoise"
+   },
+   {
+      "data": {
+         "anode": "AnodePlane:anode6",
+         "baselines": [
+            9.9999999999999995e-07,
+            9.9999999999999995e-07,
+            9.9999999999999995e-07
+         ],
+         "frame_tag": "orig0",
+         "fullscale": [
+            0,
+            1.9999999999999999e-06
+         ],
+         "gain": 1,
+         "resolution": 14
+      },
+      "name": "digitizer-anode6",
+      "type": "Digitizer"
+   },
+   {
+      "data": {
+         "filename": "protodunevd_FR_3view_speed1d55.json.bz2"
+      },
+      "name": "field0",
+      "type": "FieldResponse"
+   },
+   {
+      "data": {
+         "filename": "",
+         "gain": 2.2430470818000003e-12,
+         "nticks": 6246,
+         "postgain": 1.1365000000000001,
+         "shaping": 2200,
+         "tick": 500
+      },
+      "name": "elecresp0",
+      "type": "ColdElecResponse"
+   },
+   {
+      "data": {
+         "max_freq": 0.001,
+         "tau": 1.4e-05
+      },
+      "name": "ROI_tight_lf",
+      "type": "LfFilter"
+   },
+   {
+      "data": {
+         "max_freq": 0.001,
+         "tau": 6.0000000000000002e-05
+      },
+      "name": "ROI_tighter_lf",
+      "type": "LfFilter"
+   },
+   {
+      "data": {
+         "max_freq": 0.001,
+         "tau": 1.9999999999999999e-06
+      },
+      "name": "ROI_loose_lf",
+      "type": "LfFilter"
+   },
+   {
+      "data": {
+         "flag": true,
+         "max_freq": 0.001,
+         "power": 2,
+         "sigma": 0
+      },
+      "name": "Gaus_tight",
+      "type": "HfFilter"
+   },
+   {
+      "data": {
+         "flag": true,
+         "max_freq": 0.001,
+         "power": 2,
+         "sigma": 0.00012
+      },
+      "name": "Gaus_wide",
+      "type": "HfFilter"
+   },
+   {
+      "data": {
+         "flag": true,
+         "max_freq": 0.001,
+         "power": 3.7619400000000001,
+         "sigma": 0.00014878800000000001
+      },
+      "name": "Wiener_tight_U",
+      "type": "HfFilter"
+   },
+   {
+      "data": {
+         "flag": true,
+         "max_freq": 0.001,
+         "power": 4.3612500000000001,
+         "sigma": 0.00015965679999999999
+      },
+      "name": "Wiener_tight_V",
+      "type": "HfFilter"
+   },
+   {
+      "data": {
+         "flag": true,
+         "max_freq": 0.001,
+         "power": 3.35324,
+         "sigma": 0.00013622999999999999
+      },
+      "name": "Wiener_tight_W",
+      "type": "HfFilter"
+   },
+   {
+      "data": {
+         "flag": true,
+         "max_freq": 0.001,
+         "power": 5.0542899999999999,
+         "sigma": 0.00018676499999999998
+      },
+      "name": "Wiener_wide_U",
+      "type": "HfFilter"
+   },
+   {
+      "data": {
+         "flag": true,
+         "max_freq": 0.001,
+         "power": 5.7742199999999997,
+         "sigma": 0.00019359999999999999
+      },
+      "name": "Wiener_wide_V",
+      "type": "HfFilter"
+   },
+   {
+      "data": {
+         "flag": true,
+         "max_freq": 0.001,
+         "power": 4.3792799999999996,
+         "sigma": 0.00017572199999999998
+      },
+      "name": "Wiener_wide_W",
+      "type": "HfFilter"
+   },
+   {
+      "data": {
+         "flag": false,
+         "max_freq": 1,
+         "power": 2,
+         "sigma": 2.8209479177387813
+      },
+      "name": "Wire_ind",
+      "type": "HfFilter"
+   },
+   {
+      "data": {
+         "flag": false,
+         "max_freq": 1,
+         "power": 2,
+         "sigma": 5.6418958354775626
+      },
+      "name": "Wire_col",
+      "type": "HfFilter"
+   },
+   {
+      "data": {
+         "ADC_mV": 8191500000,
+         "anode": "AnodePlane:anode6",
+         "break_roi_loop1_tag": "break_roi_1st6",
+         "break_roi_loop2_tag": "break_roi_2nd6",
+         "cleanup_roi_tag": "cleanup_roi6",
+         "ctoffset": 1000,
+         "decon_charge_tag": "decon_charge6",
+         "dft": "FftwDFT",
+         "elecresponse": "JsonElecResponse:elecresp1",
+         "extend_roi_tag": "extend_roi6",
+         "fft_flag": 0,
+         "field_response": "FieldResponse:field0",
+         "ftoffset": 0,
+         "gauss_tag": "gauss6",
+         "isWrapped": false,
+         "loose_lf_tag": "loose_lf6",
+         "lroi_jump_one_bin": 1,
+         "lroi_rebin": 6,
+         "lroi_th_factor": 3.5,
+         "lroi_th_factor1": 0.69999999999999996,
+         "mp2_roi_tag": "mp2_roi6",
+         "mp3_roi_tag": "mp3_roi6",
+         "mp_tick_resolution": 4,
+         "per_chan_resp": "",
+         "postgain": 1,
+         "r_fake_signal_high_th": 750,
+         "r_fake_signal_high_th_ind_factor": 1,
+         "r_fake_signal_low_th": 375,
+         "r_fake_signal_low_th_ind_factor": 1,
+         "r_low_peak_sep_threshold_pre": 1200,
+         "r_sep_peak": 6,
+         "r_th_factor": 3,
+         "r_th_peak": 3,
+         "shrink_roi_tag": "shrink_roi6",
+         "sparse": false,
+         "tight_lf_tag": "tight_lf6",
+         "troi_col_th_factor": 5,
+         "troi_ind_th_factor": 3,
+         "use_multi_plane_protection": false,
+         "use_roi_debug_mode": false,
+         "wiener_tag": "wiener6",
+         "wiener_threshold_tag": "threshold6"
+      },
+      "name": "anode6sigproc6",
+      "type": "OmnibusSigProc"
+   },
+   {
+      "data": {
+         "anode": "AnodePlane:anode6",
+         "frames": [
+            "gauss6"
+         ],
+         "output_filename": "mag-sim-sp.root",
+         "root_file_mode": "UPDATE",
+         "trace_has_tag": true
+      },
+      "name": "magdecon0",
+      "type": "MagnifySink"
+   },
+   {
+      "data": {
+         "anode": "AnodePlane:anode6",
+         "cm_tag": "bad",
+         "ncount_org": 1,
+         "org_hlimit": [
+            8500
+         ],
+         "org_llimit": [
+            0
+         ],
+         "trace_tag": "gauss6"
+      },
+      "name": "cmm-mod-anode6",
+      "type": "CMMModifier"
+   },
+   {
+      "data": {
+         "anode": "AnodePlane:anode6",
+         "cm_tag": "bad",
+         "trace_tags": [
+            "gauss6",
+            "wiener6"
+         ]
+      },
+      "name": "frame-masking-anode6",
+      "type": "FrameMasking"
+   },
+   {
+      "data": {
+         "filename": "microboone-charge-error.json.bz2"
+      },
+      "name": "wfm",
+      "type": "WaveformMap"
+   },
+   {
+      "data": {
+         "anode": "AnodePlane:anode6",
+         "errors": "WaveformMap:wfm",
+         "fudge_factors": [
+            2.3100000000000001,
+            2.3100000000000001,
+            1.1000000000000001
+         ],
+         "intag": "gauss6",
+         "outtag": "gauss_error6",
+         "rebin": 4,
+         "time_limits": [
+            12,
+            800
+         ]
+      },
+      "name": "cefe-anode6",
+      "type": "ChargeErrorFrameEstimator"
+   },
+   {
+      "data": {
+         "active_planes": [
+            0,
+            1,
+            2
+         ],
+         "anode": "AnodePlane:anode6",
+         "charge_tag": "gauss6",
+         "dummy_planes": [ ],
+         "error_tag": "gauss_error6",
+         "masked_planes": [ ],
+         "max_tbin": 8500,
+         "min_tbin": 0,
+         "nthreshold": [
+            3.6000000000000001,
+            3.6000000000000001,
+            3.6000000000000001
+         ],
+         "tick_span": 4,
+         "wiener_tag": "wiener6"
+      },
+      "name": "slicing-anode6",
+      "type": "MaskSlices"
+   },
+   {
+      "data": {
+         "multiplicity": 2
+      },
+      "name": "slicefanout-anode6",
+      "type": "SliceFanout"
+   },
+   {
+      "data": {
+         "multiplicity": 2
+      },
+      "name": "blobsetsync-anode6",
+      "type": "BlobSetSync"
+   },
+   {
+      "data": {
+         "anode": "AnodePlane:anode6",
+         "face": 0,
+         "nudge": 0.01
+      },
+      "name": "tiling-anode6-face0",
+      "type": "GridTiling"
+   },
+   {
+      "data": {
+         "anode": "AnodePlane:anode6",
+         "face": 1,
+         "nudge": 0.01
+      },
+      "name": "tiling-anode6-face1",
+      "type": "GridTiling"
+   },
+   {
+      "data": {
+         "policy": "uboone"
+      },
+      "name": "blobclustering-anode6",
+      "type": "BlobClustering"
+   },
+   {
+      "data": { },
+      "name": "blobgrouping-anode61st",
+      "type": "BlobGrouping"
+   },
+   {
+      "data": {
+         "solve_config": "uboone",
+         "weighting_strategies": [
+            "uniform"
+         ],
+         "whiten": true
+      },
+      "name": "cs1-anode61st",
+      "type": "ChargeSolving"
+   },
+   {
+      "data": {
+         "dryrun": false
+      },
+      "name": "local-clustering-anode61st",
+      "type": "LocalGeomClustering"
+   },
+   {
+      "data": {
+         "solve_config": "uboone",
+         "weighting_strategies": [
+            "uboone"
+         ],
+         "whiten": true
+      },
+      "name": "cs2-anode61st",
+      "type": "ChargeSolving"
+   },
+   {
+      "data": {
+         "config_round": 1,
+         "dryrun": false,
+         "good_blob_charge_th": 300
+      },
+      "name": "inslice_deghosting-anode61st",
+      "type": "InSliceDeghosting"
+   },
+   {
+      "data": {
+         "policy": "uboone"
+      },
+      "name": "global-clustering-anode6",
+      "type": "GlobalGeomClustering"
+   },
+   {
+      "data": {
+         "multiplicity": 2
+      },
+      "name": "clusterfanout-bdf-6",
+      "type": "ClusterFanout"
+   },
+   {
+      "data": {
+         "faces": [
+            {
+               "anode": -3358.3499999999999,
+               "cathode": -25.400000000000091,
+               "response": -3191.6374999999998
+            },
+            {
+               "anode": -3358.3499999999999,
+               "cathode": -25.400000000000091,
+               "response": -3191.6374999999998
+            }
+         ],
+         "ident": 0,
+         "nimpacts": 10,
+         "wire_schema": "WireSchemaFile"
+      },
+      "name": "anode0",
+      "type": "AnodePlane"
+   },
+   {
+      "data": {
+         "faces": [
+            {
+               "anode": -3358.3499999999999,
+               "cathode": -25.400000000000091,
+               "response": -3191.6374999999998
+            },
+            {
+               "anode": -3358.3499999999999,
+               "cathode": -25.400000000000091,
+               "response": -3191.6374999999998
+            }
+         ],
+         "ident": 1,
+         "nimpacts": 10,
+         "wire_schema": "WireSchemaFile"
+      },
+      "name": "anode1",
+      "type": "AnodePlane"
+   },
+   {
+      "data": {
+         "faces": [
+            {
+               "anode": -3358.3499999999999,
+               "cathode": -25.400000000000091,
+               "response": -3191.6374999999998
+            },
+            {
+               "anode": -3358.3499999999999,
+               "cathode": -25.400000000000091,
+               "response": -3191.6374999999998
+            }
+         ],
+         "ident": 2,
+         "nimpacts": 10,
+         "wire_schema": "WireSchemaFile"
+      },
+      "name": "anode2",
+      "type": "AnodePlane"
+   },
+   {
+      "data": {
+         "faces": [
+            {
+               "anode": -3358.3499999999999,
+               "cathode": -25.400000000000091,
+               "response": -3191.6374999999998
+            },
+            {
+               "anode": -3358.3499999999999,
+               "cathode": -25.400000000000091,
+               "response": -3191.6374999999998
+            }
+         ],
+         "ident": 3,
+         "nimpacts": 10,
+         "wire_schema": "WireSchemaFile"
+      },
+      "name": "anode3",
+      "type": "AnodePlane"
+   },
+   {
+      "data": {
+         "faces": [
+            {
+               "anode": 3358.3499999999999,
+               "cathode": 25.400000000000091,
+               "response": 3191.6374999999998
+            },
+            {
+               "anode": 3358.3499999999999,
+               "cathode": 25.400000000000091,
+               "response": 3191.6374999999998
+            }
+         ],
+         "ident": 4,
+         "nimpacts": 10,
+         "wire_schema": "WireSchemaFile"
+      },
+      "name": "anode4",
+      "type": "AnodePlane"
+   },
+   {
+      "data": {
+         "faces": [
+            {
+               "anode": 3358.3499999999999,
+               "cathode": 25.400000000000091,
+               "response": 3191.6374999999998
+            },
+            {
+               "anode": 3358.3499999999999,
+               "cathode": 25.400000000000091,
+               "response": 3191.6374999999998
+            }
+         ],
+         "ident": 5,
+         "nimpacts": 10,
+         "wire_schema": "WireSchemaFile"
+      },
+      "name": "anode5",
+      "type": "AnodePlane"
+   },
+   {
+      "data": {
+         "faces": [
+            {
+               "anode": 3358.3499999999999,
+               "cathode": 25.400000000000091,
+               "response": 3191.6374999999998
+            },
+            {
+               "anode": 3358.3499999999999,
+               "cathode": 25.400000000000091,
+               "response": 3191.6374999999998
+            }
+         ],
+         "ident": 7,
+         "nimpacts": 10,
+         "wire_schema": "WireSchemaFile"
+      },
+      "name": "anode7",
+      "type": "AnodePlane"
+   },
+   {
+      "data": {
+         "speed": 0.0014730000000000001,
+         "time_offset": 360683.29999999999
+      },
+      "name": "blobdepo-filler-bdf-6",
+      "type": "BlobDepoFill"
+   },
+   {
+      "data": {
+         "format": "json",
+         "outname": "clusters-apa-reco-6.tar.gz"
+      },
+      "name": "clustersink-reco-6",
+      "type": "ClusterFileSink"
+   },
+   {
+      "data": {
+         "format": "json",
+         "outname": "clusters-apa-bdf-6.tar.gz"
+      },
+      "name": "clustersink-bdf-6",
+      "type": "ClusterFileSink"
+   },
+   {
+      "data": {
+         "edges": [
+            {
+               "head": {
+                  "node": "Drifter",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "TrackDepos:trackdepos",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "DepoBagger:bagger",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "Drifter",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "DepoSetFanout:reco-bdf",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "DepoBagger:bagger",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "DepoSetFanout:dsout-bdf-0",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "DepoSetFanout:reco-bdf",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "DepoTransform:depotransform-anode6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "DepoSetFanout:dsout-bdf-0",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "BlobDepoFill:blobdepo-filler-bdf-6",
+                  "port": 1
+               },
+               "tail": {
+                  "node": "DepoSetFanout:dsout-bdf-0",
+                  "port": 1
+               }
+            },
+            {
+               "head": {
+                  "node": "ClusterFanout:clusterfanout-bdf-6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "GlobalGeomClustering:global-clustering-anode6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "ClusterFileSink:clustersink-reco-6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "ClusterFanout:clusterfanout-bdf-6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "BlobDepoFill:blobdepo-filler-bdf-6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "ClusterFanout:clusterfanout-bdf-6",
+                  "port": 1
+               }
+            },
+            {
+               "head": {
+                  "node": "ClusterFileSink:clustersink-bdf-6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "BlobDepoFill:blobdepo-filler-bdf-6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "OmnibusSigProc:anode6sigproc6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "Digitizer:digitizer-anode6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "MagnifySink:magdecon0",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "OmnibusSigProc:anode6sigproc6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "CMMModifier:cmm-mod-anode6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "MagnifySink:magdecon0",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "Reframer:reframer-anode6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "DepoTransform:depotransform-anode6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "AddNoise:addnoise-empericalnoise-anode6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "Reframer:reframer-anode6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "Digitizer:digitizer-anode6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "AddNoise:addnoise-empericalnoise-anode6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "MaskSlices:slicing-anode6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "ChargeErrorFrameEstimator:cefe-anode6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "FrameMasking:frame-masking-anode6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "CMMModifier:cmm-mod-anode6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "ChargeErrorFrameEstimator:cefe-anode6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "FrameMasking:frame-masking-anode6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "SliceFanout:slicefanout-anode6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "MaskSlices:slicing-anode6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "BlobClustering:blobclustering-anode6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "BlobSetSync:blobsetsync-anode6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "GridTiling:tiling-anode6-face0",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "SliceFanout:slicefanout-anode6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "GridTiling:tiling-anode6-face1",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "SliceFanout:slicefanout-anode6",
+                  "port": 1
+               }
+            },
+            {
+               "head": {
+                  "node": "BlobSetSync:blobsetsync-anode6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "GridTiling:tiling-anode6-face0",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "BlobSetSync:blobsetsync-anode6",
+                  "port": 1
+               },
+               "tail": {
+                  "node": "GridTiling:tiling-anode6-face1",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "BlobGrouping:blobgrouping-anode61st",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "BlobClustering:blobclustering-anode6",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "InSliceDeghosting:inslice_deghosting-anode61st",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "ChargeSolving:cs2-anode61st",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "GlobalGeomClustering:global-clustering-anode6",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "InSliceDeghosting:inslice_deghosting-anode61st",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "ChargeSolving:cs1-anode61st",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "BlobGrouping:blobgrouping-anode61st",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "LocalGeomClustering:local-clustering-anode61st",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "ChargeSolving:cs1-anode61st",
+                  "port": 0
+               }
+            },
+            {
+               "head": {
+                  "node": "ChargeSolving:cs2-anode61st",
+                  "port": 0
+               },
+               "tail": {
+                  "node": "LocalGeomClustering:local-clustering-anode61st",
+                  "port": 0
+               }
+            }
+         ]
+      },
+      "type": "Pgrapher"
+   }
+]
