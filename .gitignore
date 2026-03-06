@@ -2,6 +2,7 @@
 *.root
 *.tar.gz
 *.json.bz2
+*.json
 *.h5
 *.hdf5
 data/
