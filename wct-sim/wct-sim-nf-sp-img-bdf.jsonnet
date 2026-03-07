@@ -12,8 +12,8 @@ local params = import 'pgrapher/experiment/pdhd/simparams.jsonnet';
 local btools = tools_maker(params);
 local tools = btools {
     // anodes : [btools.anodes[0],],
-    // anodes : [btools.anodes[0], btools.anodes[1],],
-    anodes : [btools.anodes[0], btools.anodes[1], btools.anodes[2], btools.anodes[3],],
+    anodes : [btools.anodes[0], btools.anodes[1],],
+    // anodes : [btools.anodes[0], btools.anodes[1], btools.anodes[2], btools.anodes[3],],
 };
 
 local sim_maker = import 'pgrapher/experiment/pdhd/sim.jsonnet';
@@ -262,8 +262,17 @@ local dsout(name, multiplicity) = g.pnode({
 }, nin=1, nout=multiplicity
 );
 
+local drifted_depo_sink(name, n) = g.pnode({
+    type: "DepoFileSink",
+    name: "drifted_depo_sink-%s" % name,
+    data: { 
+        outname: "depos-drifted-%d.zip" % n 
+    }
+}, nin=1, nout=0);
+
 local per_apa = [
-    local dsf = dsout("bdf-%d" %n, 2);
+    local dsf = dsout("bdf-%d" %n, 3);
+    local drifted_depos = drifted_depo_sink("drfited-%d" %n, n);
     local reco = reco_fork[n];
     local cf = img_maker.cluster_fanout("bdf-%d"%tools.anodes[n].data.ident, 2);
     local bdf = img_maker.blob_depo_fill(tools.anodes[n], "bdf-%d"%tools.anodes[n].data.ident);
@@ -272,10 +281,11 @@ local per_apa = [
     g.intern(
         innodes=[dsf],
         outnodes=[],
-        centernodes=[reco,cf,bdf,recs,bdfs,],
+        centernodes=[drifted_depos, reco,cf,bdf,recs,bdfs,],
         edges = [
             g.edge(dsf, reco, 0, 0),
             g.edge(dsf, bdf, 1, 1),
+            g.edge(dsf, drifted_depos, 2, 0),
             g.edge(reco, cf, 0, 0),
             g.edge(cf, recs, 0, 0),
             g.edge(cf, bdf, 1, 0),
