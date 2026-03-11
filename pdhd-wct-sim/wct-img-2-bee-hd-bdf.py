@@ -10,6 +10,7 @@ def main(fp1,fp2):
     os.system('mkdir -p data/0')
     density = 1
 
+
     cmd = 'wirecell-img bee-blobs -g protodunehd -s uniform -d %f --speed "1.6*mm/us" --t0 "250*us" --x0 "358*cm" -o data/0/0-rec.json %s' % (density, fp1, )
     print(cmd)
     os.system(cmd)

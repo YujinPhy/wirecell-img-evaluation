@@ -46,11 +46,12 @@ local tracklist = [
 ];
 
 local track_depos = sim.tracks(tracklist, step=0.1 * wc.mm);
+// local track_depos = sim.tracks(tracklist, step=1 * wc.mm);
 
 
 // ==== Bagger & Drifter ====
 local drifter = sim.drifter;
-local bagger = sim.make_bagger("bagger");
+local bagger = sim.make_bagger();
 
 
 // ==== NF + Trad SP + Img ====
@@ -61,11 +62,11 @@ local sn_pipes = sim.splusn_pipelines;
 // local perfect = import 'pgrapher/experiment/pdhd/chndb-perfect.jsonnet';
 local base = import 'pgrapher/experiment/pdhd/chndb-base.jsonnet';
 local chndb = [{
-type: 'OmniChannelNoiseDB',
-name: 'ocndbperfect%d' % n,
-// data: perfect(params, tools.anodes[n], tools.field, n),
-data: base(params, tools.anodes[n], tools.field, n),
-uses: [tools.anodes[n], tools.field],  // pnode extension
+    type: 'OmniChannelNoiseDB',
+    name: 'ocndbperfect%d' % n,
+    // data: perfect(params, tools.anodes[n], tools.field, n),
+    data: base(params, tools.anodes[n], tools.field, n),
+    uses: [tools.anodes[n], tools.field],  // pnode extension
 } for n in anode_iota];
 
 //local chndb_maker = import 'pgrapher/experiment/pdhd/chndb.jsonnet';
@@ -106,7 +107,7 @@ local sp_override = { // assume all tages sets in base sp.jsonnet
 local sp = sp_maker(params, tools, sp_override);
 local sp_pipes = [sp.make_sigproc(a) for a in tools.anodes];
 
-local img = import '/nfs/data/1/yujin/img_BlobDepoFill/wct-sim/img.jsonnet';
+local img = import '/nfs/data/1/yujin/img_BlobDepoFill/pdhd-wct-sim/img.jsonnet';
 local img_maker = img();
 local img_pipes = [img_maker.per_anode(a) for a in tools.anodes];
 
@@ -224,7 +225,7 @@ local reco_fork = [
                 sn_pipes[n],
                 magnifyio.orig_pipe[n],
                 // hio_orig[n],
-                nf_pipes[n],
+                // nf_pipes[n],
                 // rio_nf[n],
                 sp_pipes[n],
                 // hio_sp[n],
@@ -250,7 +251,20 @@ local tag_rules = {
         + {['dnnsp%d' % anode.data.ident]: ['dnnsp%d' % anode.data.ident] for anode in tools.anodes},
 };
 
+
+local undrifted_depo_sink = g.node({
+    type: "DepoFileSink",
+    name: "undrifted_depo_sink",
+    data: {
+        outname: "undrifted_depos.zip",
+    }
+}, nin=1, nout=0);
+
+
+
 local pre_pipe = g.pipeline([track_depos, drifter, bagger]);
+
+
 
 
 local dsout(name, multiplicity) = g.pnode({
@@ -269,6 +283,8 @@ local drifted_depo_sink(name, n) = g.pnode({
         outname: "depos-drifted-%d.zip" % n 
     }
 }, nin=1, nout=0);
+
+
 
 local per_apa = [
     local dsf = dsout("bdf-%d" %n, 3);
@@ -296,7 +312,7 @@ local per_apa = [
     ), for n in std.range(0, std.length(tools.anodes) - 1)];
 
 local parallel_graph = g.fan.fanout('DepoSetFanout', per_apa, "reco-bdf", tag_rules);
-local graph = g.pipeline([pre_pipe, parallel_graph], "main");
+local graph = g.pipeline([track_depos, drifter, bagger, parallel_graph], "main");
 
 local app = {
 type: 'Pgrapher',

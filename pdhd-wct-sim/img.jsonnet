@@ -105,7 +105,7 @@ local img = {
                 charge_tag: "gauss%d" % anode.data.ident,
                 error_tag: "gauss_error%d" % anode.data.ident,
               
-                 summary_tag: "wiener%d" % anode.data.ident, anode: wc.tn(anode),
+                summary_tag: "wiener%d" % anode.data.ident, anode: wc.tn(anode),
                 min_tbin: 0,
                 max_tbin: 8500,
                 active_planes: active_planes,
@@ -356,10 +356,6 @@ function() {
             // fixme, breaks detector independence
             speed: drift_speed, //1.56*wc.mm/wc.us, 
             // fixme, as does this
-            // time_offset: 360.6833*wc.us, //314*wc.us,
-            // time_offset: params.sim.ductor.start_time,
-            // time_offset: -62.5*wc.us,
-            time_offset: 750356*wc.us,
         }
     }, nin=2, nout=1, uses=anodes),
     cluster_fanout(name, multiplicity) :: g.pnode({
@@ -370,3 +366,4 @@ function() {
         }
     }, nin=1, nout=multiplicity),
 }
+            // time_offset: params.sim.ductor.start_time,
