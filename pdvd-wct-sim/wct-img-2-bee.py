@@ -57,12 +57,12 @@ def main(fp1,fp2):
     if (os.path.exists('upload.zip')):
         os.system('rm -f upload.zip')
     os.system('mkdir -p data/0')
-    density = 1
-    cmd = 'wirecell-img bee-blobs -g protodunevd -s uniform -d %f --speed "-1.56*mm/us" --t0 "0*us" --x0 "-341.5*cm" -o data/0/0-rec.json %s' % (density, fp1, )
+    density = 20
+    cmd = 'wirecell-img bee-blobs -g protodunevd -s uniform -d %f --speed "-1.473*mm/us" --t0 "372.878479294*us" --x0 "-319.164*cm" -o data/0/0-rec.json %s' % (density, fp1, )
     print(cmd)
     os.system(cmd)
 
-    cmd = 'wirecell-img bee-blobs -g protodunevd -s uniform -d %f --speed "-1.56*mm/us" --t0 "0*us" --x0 "-341.5*cm" -o data/0/0-bdf.json %s' % (density, fp2, )
+    cmd = 'wirecell-img bee-blobs -g protodunevd -s uniform -d %f --speed "-1.473*mm/us" --t0 "372.878479294*us" --x0 "-319.164*cm" -o data/0/0-bdf.json %s' % (density, fp2, )
     print(cmd)
     os.system(cmd)
 

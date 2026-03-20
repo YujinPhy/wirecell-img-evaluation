@@ -8,7 +8,7 @@ def main(fp1,fp2):
     if (os.path.exists('upload.zip')):
         os.system('rm -f upload.zip')
     os.system('mkdir -p data/0')
-    density = 1
+    density = 20
 
 
     cmd = 'wirecell-img bee-blobs -g protodunehd -s uniform -d %f --speed "1.6*mm/us" --t0 "250*us" --x0 "358*cm" -o data/0/0-rec.json %s' % (density, fp1, )

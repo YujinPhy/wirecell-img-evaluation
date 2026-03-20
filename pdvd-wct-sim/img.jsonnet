@@ -361,6 +361,8 @@ function() {
             speed: drift_speed, //1.56*wc.mm/wc.us, 
             // fixme, as does this
             // time_offset: 360.6833*wc.us, //314*wc.us,
+            // time_offset: 372.878479294*wc.us, //314*wc.us,
+            time_offset: 368*wc.us, //314*wc.us,
         }
     }, nin=2, nout=1, uses=anodes),
     cluster_fanout(name, multiplicity) :: g.pnode({

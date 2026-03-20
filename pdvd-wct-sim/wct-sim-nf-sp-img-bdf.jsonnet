@@ -12,7 +12,8 @@ local params = import 'pgrapher/experiment/protodunevd/simparams.jsonnet';
 local btools = tools_maker(params);
 local tools = btools {
     // anodes : [btools.anodes[0], ],
-    anodes : [btools.anodes[0], btools.anodes[1], btools.anodes[2], btools.anodes[3], btools.anodes[4], btools.anodes[5], btools.anodes[6], btools.anodes[7], ],
+    anodes : [btools.anodes[0], btools.anodes[1], ]
+    // anodes : [btools.anodes[0], btools.anodes[1], btools.anodes[2], btools.anodes[3], btools.anodes[4], btools.anodes[5], btools.anodes[6], btools.anodes[7], ],
 };
 
 local sim_maker = import 'pgrapher/experiment/protodunevd/sim.jsonnet';
@@ -21,8 +22,13 @@ local sim = sim_maker(params, tools);
 local nanodes = std.length(tools.anodes);
 local anode_iota = std.range(0, nanodes-1);
 
-local thetaXZ = 75*wc.deg; // 0, 10, 20, 30, 45, 60, 75, 80, 82, 84
-local deltaZ = 135;
+// local thetaXZ = 75*wc.deg; // 0, 10, 20, 30, 45, 60, 75, 80, 82, 84
+// local thetaXZ = 85*wc.deg; // 0, 10, 20, 30, 45, 60, 75, 80, 82, 84
+// local thetaXZ = 75*wc.deg; // 0, 10, 20, 30, 45, 60, 75, 80, 82, 84
+// local thetaXZ = 50*wc.deg; // 0, 10, 20, 30, 45, 60, 75, 80, 82, 84
+local thetaXZ = 45*wc.deg; // 0, 10, 20, 30, 45, 60, 75, 80, 82, 84
+local deltaZ = 70;
+// local deltaZ = 70;
 
 local stubby_top1 = {
   tail: wc.point(10, -200, 10, wc.cm),
@@ -36,10 +42,14 @@ local stubby_top2 = {
 
 // cru 0
 local stubby_bottom1 = {
-  tail: wc.point(-10, -50, 10, wc.cm),
+  tail: wc.point(-10, -1000, 10, wc.cm),
   head: wc.point(-10 - deltaZ* std.tan(thetaXZ), -50, 10 + deltaZ, wc.cm),
 };
 
+local stubby_bottom1_1 = {
+  tail: wc.point(-30, -50, 10, wc.cm),
+  head: wc.point(-30 - deltaZ * std.tan(thetaXZ), -50, 10 + deltaZ, wc.cm),
+};
 // local stubby_bottom2 = {
 // tail: wc.point(-10, -150, 10, wc.cm),
 // head: wc.point(-10 - deltaZ* std.tan(thetaXZ), -150, 10 + deltaZ, wc.cm),
@@ -59,11 +69,11 @@ local stubby_bottom1 = {
 
 local tracklist = [
 
-  // {
-  //   time: 0 * wc.us,
-  //   charge: -500,
-  //   ray: stubby_top1,
-  // },
+//   {
+//     time: 0 * wc.us,
+//     charge: -500,
+//     ray: stubby_top1,
+//   },
   // {
   //   time: 0 * wc.us,
   //   charge: -500,
@@ -73,7 +83,7 @@ local tracklist = [
   {
     time: 0 * wc.us,
     charge: -500,
-    ray: stubby_bottom1,
+    ray: stubby_bottom1_1,
   },
 //   {
 //     time: 0 * wc.us,

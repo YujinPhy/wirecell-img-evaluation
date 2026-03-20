@@ -1,9 +1,9 @@
 #!/bin/sh
 
 export CFG=/nfs/data/1/yujin/img_BlobDepoFill/pdvd-wct-sim/wct-sim-nf-sp-img-bdf.jsonnet
-
-# export BEE_CONVERT=/nfs/data/1/yujin/img_BlobDepoFill/wct-sim/wct-img-2-bee-hd.py
 export BEE_CONVERT=/nfs/data/1/yujin/img_BlobDepoFill/pdvd-wct-sim/wct-img-2-bee.py
+export UPLOAD=/nfs/data/1/yujin/img_BlobDepoFill/pdvd-wct-sim/upload-to-bee.sh
+
 # wire-cell commands
 wire-cell -L debug -l stdout --ext-code elecGain=14  $CFG
 
@@ -21,5 +21,4 @@ python $BEE_CONVERT clusters-apa-0.tar.gz clusters-apa-bdf-0.tar.gz
 deactivate
 
 # zip -r upload data
-
-source /nfs/data/1/yujin/img_BlobDepoFill/pdvd-wct-sim/upload-to-bee.sh /nfs/data/1/yujin/img_BlobDepoFill/pdvd-wct-sim/test/upload.zip
+source $UPLOAD upload.zip
