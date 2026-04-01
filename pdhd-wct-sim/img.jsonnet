@@ -355,7 +355,8 @@ function() {
         data: {
             // fixme, breaks detector independence
             speed: drift_speed, //1.56*wc.mm/wc.us, 
-            time_offset: 312.5*wc.us, //314*wc.us,
+            // time_offset: 312.5*wc.us, //314*wc.us,
+            time_offset: 314.6674133*wc.us, //314*wc.us,
     
             // fixme, as does this
         }

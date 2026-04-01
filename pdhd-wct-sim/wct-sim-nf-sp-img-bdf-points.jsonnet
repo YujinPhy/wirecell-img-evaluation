@@ -35,28 +35,33 @@ head: wc.point(100*(1 + std.tan(thetaXZ)), 100, 100*(1+1), wc.cm),
 };
 
 // ==== Point Depo ====
+local point_x = 0;
+local point_y = 0;
+local point_z = 0;
+
 local pnt_apa2 = {
-tail: wc.point(100, 100, 100, wc.cm),
-head: wc.point(100, 100.1, 100, wc.cm),
+    tail: wc.point(point_x, point_y, point_z, wc.cm),
+    head: wc.point(point_x, point_y + 0.1, point_z, wc.cm), // 매우 짧은 선분으로 점 전하 모사
 };
+
 local tracklist = [
 
 {
-    time: 0 * wc.us,
-    charge: -500, // negative means # electrons per step (see below configuration) 
-    // ray: singletrk_apa1, // params.det.bounds,
-    ray: singletrk_apa2, // params.det.bounds,
-
     // time: 0 * wc.us,
-    // charge: -50000, // negative means # electrons per step (see below configuration) 
+    // charge: -500, // negative means # electrons per step (see below configuration) 
     // // ray: singletrk_apa1, // params.det.bounds,
-    // ray: pnt_apa2, // params.det.bounds,
+    // ray: singletrk_apa2, // params.det.bounds,
+
+    time: 0 * wc.us,
+    charge: -50000, // negative means # electrons per step (see below configuration) 
+    // ray: singletrk_apa1, // params.det.bounds,
+    ray: pnt_apa2, // params.det.bounds,
 },
 
 ];
 
-local track_depos = sim.tracks(tracklist, step=0.1 * wc.mm);
-// local track_depos = sim.tracks(tracklist, step=1 * wc.mm);
+// local track_depos = sim.tracks(tracklist, step=0.1 * wc.mm);
+local track_depos = sim.tracks(tracklist, step=1 * wc.mm);
 
 
 // ==== Bagger & Drifter ====
