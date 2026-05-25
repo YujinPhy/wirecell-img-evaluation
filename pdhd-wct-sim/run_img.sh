@@ -1,6 +1,10 @@
 #!/bin/sh
 
 export CFG=/nfs/data/1/yujin/img_BlobDepoFill/pdhd-wct-sim/wct-sim-nf-sp-img-bdf.jsonnet
+# export CFG=/nfs/data/1/yujin/img_BlobDepoFill/pdhd-wct-sim/wct-sim-nf-sp-img-bdf-tracks.jsonnet
+# export CFG=/nfs/data/1/yujin/img_BlobDepoFill/pdhd-wct-sim/wct-sim-nf-sp-img-bdf-points.jsonnet
+
+
 export BEE_CONVERT=/nfs/data/1/yujin/img_BlobDepoFill/pdhd-wct-sim/wct-img-2-bee-hd-bdf.py
 export UPLOAD=/nfs/data/1/yujin/img_BlobDepoFill/pdhd-wct-sim/upload-to-bee.sh
 

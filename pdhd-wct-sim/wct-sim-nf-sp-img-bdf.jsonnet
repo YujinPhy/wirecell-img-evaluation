@@ -23,7 +23,7 @@ local nanodes = std.length(tools.anodes);
 local anode_iota = std.range(0, nanodes-1);
 
 // ==== Track Definition ====
-local thetaXZ = 45*wc.deg;
+local thetaXZ = 60*wc.deg;
 local singletrk_apa1 = {
 tail: wc.point(-100, 100, 100, wc.cm),
 head: wc.point(-100*(1 + std.tan(thetaXZ)), 100, 100*(1+1), wc.cm),
@@ -34,18 +34,24 @@ tail: wc.point(100, 100, 100, wc.cm),
 head: wc.point(100*(1 + std.tan(thetaXZ)), 100, 100*(1+1), wc.cm),
 };
 
+local singletrk_apa2_1 = {
+tail: wc.point(10, 300, 10, wc.cm),
+head: wc.point(320, 300, 220, wc.cm),
+};
 // ==== Point Depo ====
 local pnt_apa2 = {
 tail: wc.point(100, 100, 100, wc.cm),
 head: wc.point(100, 100.1, 100, wc.cm),
 };
+
+
 local tracklist = [
 
 {
     time: 0 * wc.us,
     charge: -500, // negative means # electrons per step (see below configuration) 
     // ray: singletrk_apa1, // params.det.bounds,
-    ray: singletrk_apa2, // params.det.bounds,
+    ray: singletrk_apa2_1, // params.det.bounds,
 
     // time: 0 * wc.us,
     // charge: -50000, // negative means # electrons per step (see below configuration) 

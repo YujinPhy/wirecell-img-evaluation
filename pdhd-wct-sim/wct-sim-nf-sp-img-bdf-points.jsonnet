@@ -35,13 +35,13 @@ head: wc.point(100*(1 + std.tan(thetaXZ)), 100, 100*(1+1), wc.cm),
 };
 
 // ==== Point Depo ====
-local point_x = 0;
-local point_y = 0;
-local point_z = 0;
+local point_x = 300;
+local point_y = 300;
+local point_z = 100;
 
 local pnt_apa2 = {
     tail: wc.point(point_x, point_y, point_z, wc.cm),
-    head: wc.point(point_x, point_y + 0.1, point_z, wc.cm), // 매우 짧은 선분으로 점 전하 모사
+    head: wc.point(point_x, point_y + 0.1, point_z, wc.cm), 
 };
 
 local tracklist = [
