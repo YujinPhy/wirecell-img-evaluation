@@ -1,3 +1,12 @@
+from_jay/
+data/
+
+.claude/
+.vscode/
+
+pdhd-wct-sim/
+pdvd-wct-sim/
+
 # Data file
 *.root
 *.tar.gz
@@ -7,5 +16,7 @@
 *.hdf5
 *.zip
 *.db
-data/
 *.log
+*.pdf
+
+__pycache__

@@ -1,3 +1,7 @@
+// This configuration is modified to 3D Imaging evaluation.
+// The orinigal cfg is `cfg/pgrapher/experiment/pdhd/wct-sim-drift-deposplat.jsonnet`
+// `img.jsonnet` also modified and imported in here.
+
 local g = import 'pgraph.jsonnet';
 local f = import 'pgrapher/common/funcs.jsonnet';
 local wc = import 'wirecell.jsonnet';
@@ -7,63 +11,45 @@ local tools_maker = import 'pgrapher/common/tools.jsonnet';
 local util = import 'pgrapher/experiment/pdhd/funcs.jsonnet';
 local params = import 'pgrapher/experiment/pdhd/simparams.jsonnet';
 
+function(
+    // Target anode indices
+    anodes = [1],
 
-// local tools = tools_maker(params);
-local btools = tools_maker(params);
-local tools = btools {
-    // anodes : [btools.anodes[0],],
-    anodes : [btools.anodes[0], btools.anodes[1],],
-    // anodes : [btools.anodes[0], btools.anodes[1], btools.anodes[2], btools.anodes[3],],
-};
+    // Track definition
+    theta_xz_deg = 45, // wc.deg
+    len = 50, // wc.cm
+
+    x_start = 150, 
+    y_start = 300,
+    z_start = 100,
+
+    charge = -500,
+    step = 0.1, // wc.mm, for point depo use 1 instead of 0.1
+)
+
+local tools = tools_maker(params);
 
 local sim_maker = import 'pgrapher/experiment/pdhd/sim.jsonnet';
 local sim = sim_maker(params, tools);
 
-local nanodes = std.length(tools.anodes);
-local anode_iota = std.range(0, nanodes-1);
 
 // ==== Track Definition ====
-local thetaXZ = 60*wc.deg;
-local singletrk_apa1 = {
-tail: wc.point(-100, 100, 100, wc.cm),
-head: wc.point(-100*(1 + std.tan(thetaXZ)), 100, 100*(1+1), wc.cm),
+local thetaXZ = theta_xz_deg * wc.deg;
+local singletrk = {
+    tail: wc.point(x_start, y_start, z_start, wc.cm),
+    head: wc.point(x_start + len * std.sin(thetaXZ), 
+                   y_start, 
+                   z_start + len * std.cos(thetaXZ), wc.cm),
 };
 
-local singletrk_apa2 = {
-tail: wc.point(100, 100, 100, wc.cm),
-head: wc.point(100*(1 + std.tan(thetaXZ)), 100, 100*(1+1), wc.cm),
-};
-
-local singletrk_apa2_1 = {
-tail: wc.point(10, 300, 10, wc.cm),
-head: wc.point(320, 300, 220, wc.cm),
-};
-// ==== Point Depo ====
-local pnt_apa2 = {
-tail: wc.point(100, 100, 100, wc.cm),
-head: wc.point(100, 100.1, 100, wc.cm),
-};
-
-
-local tracklist = [
-
-{
+local tracklist = [{
     time: 0 * wc.us,
-    charge: -500, // negative means # electrons per step (see below configuration) 
-    // ray: singletrk_apa1, // params.det.bounds,
-    ray: singletrk_apa2_1, // params.det.bounds,
-
-    // time: 0 * wc.us,
-    // charge: -50000, // negative means # electrons per step (see below configuration) 
-    // // ray: singletrk_apa1, // params.det.bounds,
-    // ray: pnt_apa2, // params.det.bounds,
+    charge: charge, // negative means # electrons per step (see below configuration) 
+    ray: singletrk, // params.det.bounds,
 },
-
 ];
 
-local track_depos = sim.tracks(tracklist, step=0.1 * wc.mm);
-// local track_depos = sim.tracks(tracklist, step=1 * wc.mm);
-
+local track_depos = sim.tracks(tracklist, step=step * wc.mm);
 
 // ==== Bagger & Drifter ====
 local drifter = sim.drifter;
@@ -83,7 +69,7 @@ local chndb = [{
     // data: perfect(params, tools.anodes[n], tools.field, n),
     data: base(params, tools.anodes[n], tools.field, n),
     uses: [tools.anodes[n], tools.field],  // pnode extension
-} for n in anode_iota];
+} for n in std.range(0, std.length(tools.anodes) - 1)];
 
 //local chndb_maker = import 'pgrapher/experiment/pdhd/chndb.jsonnet';
 //local noise_epoch = "perfect";
@@ -91,12 +77,12 @@ local chndb = [{
 //local chndb_pipes = [chndb_maker(params, tools.anodes[n], tools.fields[n]).wct(noise_epoch)
 //                for n in std.range(0, std.length(tools.anodes)-1)];
 local nf_maker = import 'pgrapher/experiment/pdhd/nf.jsonnet';
-// local nf_pipes = [nf_maker(params, tools.anodes[n], chndb_pipes[n]) for n in std.range(0, std.length(tools.anodes)-1)];
-local nf_pipes = [nf_maker(params, tools.anodes[n], chndb[n], n, name='nf%d' % n) for n in anode_iota];
+local nf_pipes = [nf_maker(params, tools.anodes[n], chndb[n], n, name='nf%d' % n) for n in std.range(0, std.length(tools.anodes) - 1)];
 
 local sp_maker = import 'pgrapher/experiment/pdhd/sp.jsonnet';
 local sp_override = { // assume all tages sets in base sp.jsonnet
-    sparse: false, // sigoutform == 'sparse',
+    // sparse: true, // sigoutform == 'sparse',
+    sparse: false, // 이 부분 false로 해야 img 단계에서 오류 안뜸
     // sparse: true, // sigoutform == 'sparse',
     // wiener_tag: "",
     // gauss_tag: "",
@@ -123,7 +109,7 @@ local sp_override = { // assume all tages sets in base sp.jsonnet
 local sp = sp_maker(params, tools, sp_override);
 local sp_pipes = [sp.make_sigproc(a) for a in tools.anodes];
 
-local img = import '/nfs/data/1/yujin/img_BlobDepoFill/pdhd-wct-sim/img.jsonnet';
+local img = import 'img.jsonnet';
 local img_maker = img();
 local img_pipes = [img_maker.per_anode(a) for a in tools.anodes];
 
@@ -203,60 +189,33 @@ local hio_dnn = [g.pnode({
     for n in std.range(0, std.length(tools.anodes) - 1)
 ];
 
-local rio_orig = [g.pnode({
-        type: 'ExampleROOTAna',
-        name: 'rio_orig_apa%d' % n,
-        data: {
-            output_filename: "g4-rec-%d.root" % n,
-            anode: wc.tn(tools.anodes[n]),
-        },  
-    }, nin=1, nout=1),
-    for n in std.range(0, std.length(tools.anodes) - 1)
-];
 
-local rio_nf = [g.pnode({
-        type: 'ExampleROOTAna',
-        name: 'rio_nf_apa%d' % n,
-        data: {
-            output_filename: "g4-rec-%d.root" % n,
-            anode: wc.tn(tools.anodes[n]),
-        },  
-    }, nin=1, nout=1),
-    for n in std.range(0, std.length(tools.anodes) - 1)
-];
+// ==== Build pipeline for each anode ====
+local undrifted_depo_sink = g.node({
+    type: "DepoFileSink",
+    name: "undrifted_depo_sink",
+    data: {
+        outname: "undrifted_depos.zip",
+    }
+}, nin=1, nout=0);
 
-local rio_sp = [g.pnode({
-        type: 'ExampleROOTAna',
-        name: 'rio_sp_apa%d' % n,
-        data: {
-            output_filename: "g4-rec-%d.root" % n,
-            anode: wc.tn(tools.anodes[n]),
-        },  
-    }, nin=1, nout=1),
-    for n in std.range(0, std.length(tools.anodes) - 1)
-];
+local reco_fork(n) = g.pipeline([
+    sn_pipes[n],
+    magnifyio.orig_pipe[n],
+    // hio_orig[n],
+    // nf_pipes[n],
+    // rio_nf[n],
+    sp_pipes[n],
+    // hio_sp[n],
+    // rio_sp[n],
+    magnifyio.debug_pipe[n],
+    magnifyio.decon_pipe[n],
 
-local reco_fork = [
-    g.pipeline([
-                sn_pipes[n],
-                magnifyio.orig_pipe[n],
-                // hio_orig[n],
-                // nf_pipes[n],
-                // rio_nf[n],
-                sp_pipes[n],
-                // hio_sp[n],
-                // rio_sp[n],
-                magnifyio.debug_pipe[n],
-                magnifyio.decon_pipe[n],
-
-                img_pipes[n],
-                ],
-                'reco_fork%d' % n)
-    for n in anode_iota
-];
+    img_pipes[n],
+    ], 'reco_fork%d' % n
+);
 
 
-// ==== Connecting pipes ====
 local tag_rules = {
     frame: {
         '.*': 'framefanin',
@@ -266,21 +225,6 @@ local tag_rules = {
         + {['threshold%d' % anode.data.ident]: ['threshold%d' % anode.data.ident] for anode in tools.anodes}
         + {['dnnsp%d' % anode.data.ident]: ['dnnsp%d' % anode.data.ident] for anode in tools.anodes},
 };
-
-
-local undrifted_depo_sink = g.node({
-    type: "DepoFileSink",
-    name: "undrifted_depo_sink",
-    data: {
-        outname: "undrifted_depos.zip",
-    }
-}, nin=1, nout=0);
-
-
-
-local pre_pipe = g.pipeline([track_depos, drifter, bagger]);
-
-
 
 
 local dsout(name, multiplicity) = g.pnode({
@@ -301,11 +245,10 @@ local drifted_depo_sink(name, n) = g.pnode({
 }, nin=1, nout=0);
 
 
-
-local per_apa = [
+local per_anode_pipe(n) =
     local dsf = dsout("bdf-%d" %n, 3);
     local drifted_depos = drifted_depo_sink("drfited-%d" %n, n);
-    local reco = reco_fork[n];
+    local reco = reco_fork(n);
     local cf = img_maker.cluster_fanout("bdf-%d"%tools.anodes[n].data.ident, 2);
     local bdf = img_maker.blob_depo_fill(tools.anodes[n], "bdf-%d"%tools.anodes[n].data.ident);
     local recs = img_maker.sink(tools.anodes[n], "%d"%tools.anodes[n].data.ident);
@@ -325,9 +268,15 @@ local per_apa = [
         ],
         iports = [dsf.iports[0]],
         oports = [],
-    ), for n in std.range(0, std.length(tools.anodes) - 1)];
+);
 
-local parallel_graph = g.fan.fanout('DepoSetFanout', per_apa, "reco-bdf", tag_rules);
+local parallel_graph = g.fan.fanout(
+    'DepoSetFanout',
+    [per_anode_pipe(n) for n in anodes],
+    "reco-bdf",
+    tag_rules,
+);
+
 local graph = g.pipeline([track_depos, drifter, bagger, parallel_graph], "main");
 
 local app = {
@@ -341,9 +290,7 @@ local cmdline = {
     type: "wire-cell",
     data: {
         plugins: ["WireCellPgraph", "WireCellGen","WireCellSio","WireCellSigProc","WireCellRoot","WireCellLarsoft","WireCellHio","WireCellTbb",'WireCellImg',"WireCellPytorch"],
-        // plugins: ["WireCellGen", "WireCellPgraph", "WireCellSio", "WireCellSigProc", "WireCellRoot", "WireCellPytorch"],
         apps: ["Pgrapher"]
     }   
 };
 [cmdline] + g.uses(graph) + [app]
-

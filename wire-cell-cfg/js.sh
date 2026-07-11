@@ -1,8 +1,21 @@
 #!/bin/bash
-
-# For My output routine
-OUT_DIR="for_DFP"
-mkdir -p "$OUT_DIR"
+#
+# Compile a Wire-Cell Toolkit jsonnet config into JSON and/or render its
+# pipeline graph as a PDF. Output files are written next to the input
+# jsonnet file (same directory, same base name).
+#
+# Usage:
+#   ./js.sh <json|pdf|all> <path/to/config.jsonnet> [dotify extra args]
+#
+# Examples:
+#   ./js.sh json pdhd/wct-sim-nf-sp-img-bdf.jsonnet
+#       -> writes pdhd/wct-sim-nf-sp-img-bdf.json
+#   ./js.sh pdf pdhd/wct-sim-nf-sp-img-bdf.jsonnet
+#       -> writes pdhd/wct-sim-nf-sp-img-bdf.pdf (requires the .json to already exist)
+#   ./js.sh all pdhd/wct-sim-nf-sp-img-bdf.jsonnet
+#       -> does both of the above in sequence
+#
+# Requires $WIRECELL_PATH to be set (colon-separated jsonnet search dirs).
 
 name=$2
 base_name="${name%.jsonnet}"
@@ -36,10 +49,10 @@ if [[ $1 == "json" || $1 == "all" ]]; then
       --ext-str use_magnify="use_magnify" \
       $J_ARGS \
       ${base_name}.jsonnet \
-      -o "${OUT_DIR}/${base_name}.json" 
+      -o "${base_name}.json"
 fi
 
 if [[ $1 == "pdf" || $1 == "all" ]]; then
     # wirecell-pgraph dotify --jpath -1 --no-services --no-params ${base_name}.json ${base_name}.pdf
-    wirecell-pgraph dotify --jpath -1 --no-params ${3} "${OUT_DIR}/${base_name}.json" "${OUT_DIR}/${base_name}.pdf"
+    wirecell-pgraph dotify --jpath -1 --no-params ${3} "${base_name}.json" "${base_name}.pdf"
 fi
