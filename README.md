@@ -7,13 +7,13 @@ This repository is structured to benchmark the charge and position reconstructio
 ## Environment
 The evaluation workflow is built on **Python**. To ensure all dependencies and workspace paths are correctly resolved, the environment must be configured as follows before running any scripts:
 ```bash
-source ../wire-cell-python/venv/bin/activate    # placed at workspace root, not img_evaluation/ itself
+source ../wire-cell-python/venv/bin/activate    # placed at workspace root, not wirecell-img-evaluation/ itself
 ```
 
 ## Top-level layout
 
 ```
-img_evaluation/
+wirecell-img-evaluation/
 ├── .git/               # Git repository metadata
 ├── .gitignore          # Specifies intentionally untracked files to ignore
 ├── CLAUDE.md            # Project guide, build/test commands, and code style rules
@@ -50,11 +50,11 @@ img_evaluation/
 `from_jay/`, `pdhd-wct-sim/`, and `pdvd-wct-sim/` still exist on disk but are gitignored and superseded by `wire-cell-cfg/` + `sh_scripts/` + `scripts/`; they're kept around only as historical reference and are not part of the current workflow.
 
 ## Sub-level layouts
-### `img_evaluation/scripts`
+### `wirecell-img-evaluation/scripts`
 This directory centralizes all analysis, inspection, and visualization code for the performance evaluation.
 
 ```
-img_evaluation/scripts/
+wirecell-img-evaluation/scripts/
 ├── pdhd_single_point_analysis.py   # CLI entry point: inspects + plots one anode's depo/cluster/BDF run
 │                                    #   usage: python pdhd_single_point_analysis.py <data_dir under data/pdhd, or full path>
 ├── pdhd_true_blob_check.py         # Builds depo-based "true blobs" and validates them against reco blobs for test_point_depo (see docs/true_blob_prototype.md)
@@ -82,11 +82,11 @@ img_evaluation/scripts/
 
 Not yet ported/implemented: the per-slice charge accounting used by `plot_longitudinal_charge_distribution` / `plot_transverse_charge_distribution` (`summrize_slice_charges`, `print_slice_charge_summary`, expected at `utils/evaluation/charge_analysis.py`) does not exist yet, so those two composite plot calls in `pdhd_single_point_analysis.py` are currently non-functional until that module is written.
 
-### `img_evaluation/sh_scripts`
+### `wirecell-img-evaluation/sh_scripts`
 Shell entry points that drive one evaluation run end-to-end: compile+run a Wire-Cell Jsonnet config (`wire-cell-cfg/pdhd/...`), convert the resulting cluster files to Bee format, upload to the Bee viewer, and (for the single-run scripts) record the run's parameters + viewer URL as a `run-<timestamp>.json` file alongside the data.
 
 ```
-img_evaluation/sh_scripts/
+wirecell-img-evaluation/sh_scripts/
 ├── run_single_trk.sh             # Single parameterized track (angle/length/position/charge/anodes set via shell vars at the top)
 ├── run_single_point.sh           # Same as above, tuned for a single point deposition (tiny track length, large charge)
 ├── run_img_points.sh             # Scans a grid of point-depo (X,Y,Z) positions
@@ -96,11 +96,11 @@ img_evaluation/sh_scripts/
 
 `run_single_trk.sh` and `run_single_point.sh` point at the current `wire-cell-cfg/pdhd/` layout and are kept working. `run_img_points.sh`, `run_img_localized_points.sh`, and `run_img_track_angles.sh` still reference the older `img_BlobDepoFill` output paths and jsonnet filenames (`wct-sim-nf-sp-img-bdf-points.jsonnet`, `wct-sim-nf-sp-img-bdf-tracks.jsonnet`) and have not been updated to the current layout yet.
 
-### `img_evaluation/wire-cell-cfg/`
+### `wirecell-img-evaluation/wire-cell-cfg/`
 This directory manages the configuration files and detector geometry assets required by the Wire-Cell Toolkit (WCT) to execute or validate the 3D imaging environment.
 
 ```
-img_evaluation/wire-cell-cfg/
+wirecell-img-evaluation/wire-cell-cfg/
 ├── det_geo/                        # Detector wire geometry files
 │   ├── protodunehd-wires-larsoft-v1.json.bz2   # Wire geometry for ProtoDUNE-HD
 │   └── protodunevd-wires-larsoft-v3.json.bz2   # Wire geometry for ProtoDUNE-VD

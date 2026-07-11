@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`img_evaluation` evaluates Wire-Cell Toolkit (WCT) 3D imaging reconstruction performance (charge/position
+`wirecell-img-evaluation` evaluates Wire-Cell Toolkit (WCT) 3D imaging reconstruction performance (charge/position
 accuracy, track angle, blob size) for ProtoDUNE-HD and ProtoDUNE-VD. It is a research-notebook style
 directory of analysis/plotting scripts plus their (large, dated) result artifacts — not a shipped
 application. It is **not** version-controlled (no `.git` here, and the parent `WireCell/` workspace has no
@@ -17,7 +17,7 @@ assuming any given script's paths are still valid. This file complements it with
 code architecture; don't duplicate README's directory-by-directory inventory here.
 
 The workspace root `../CLAUDE.md` covers conventions shared across the whole multi-project workspace
-(the shared venv, sibling sub-projects like `wire-cell-python`). This file is scoped to `img_evaluation`
+(the shared venv, sibling sub-projects like `wire-cell-python`). This file is scoped to `wirecell-img-evaluation`
 specifically.
 
 ## Running scripts
@@ -27,14 +27,14 @@ numbered study script against sample data and inspecting the resulting plots/ROO
 
 ```bash
 source ../wire-cell-python/venv/bin/activate
-export PYTHONPATH="/home/yujin/projects/WireCell"   # workspace root, NOT img_evaluation/ itself
+export PYTHONPATH="/home/yujin/projects/WireCell"   # workspace root, NOT wirecell-img-evaluation/ itself
 python pdhd-wct-sim/2_single_track_analysis/track_evaluation.py   # example driver script
 ```
 
 Driver scripts under `pdhd-wct-sim/`, `pdvd-wct-sim/`, and `wct_cfgs/` import shared code as
 `from utils.xxx import ...`; this only resolves because `PYTHONPATH` is set to the workspace root
 (`/home/yujin/projects/WireCell`), one level up from this directory. `pyproject.toml` also declares a
-setuptools package (`pip install -e .` regenerates `img_evaluation.egg-info/`), but that is **not** how
+setuptools package (`pip install -e .` regenerates `wirecell_img_evaluation.egg-info/`), but that is **not** how
 scripts actually consume `utils/` in practice — the `PYTHONPATH` convention above is the real mechanism.
 `.vscode/settings.json` and `launch.json` already point the interpreter/debugger and `PYTHONPATH` at the
 right places — mirror that pattern if adding new run configs.

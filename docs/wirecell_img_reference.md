@@ -2,7 +2,7 @@
 
 ## Summary
 
-A reference inventory of every img-related function, class, and CLI command in `../wire-cell-python/wirecell/img/` (the `wirecell-img` package), and how this repository (`img_evaluation`) currently consumes it.
+A reference inventory of every img-related function, class, and CLI command in `../wire-cell-python/wirecell/img/` (the `wirecell-img` package), and how this repository (`wirecell-img-evaluation`) currently consumes it.
 This is documentation only; there is nothing to execute here.
 To use the package itself, activate the shared venv and set `PYTHONPATH` as described in this repo's `CLAUDE.md`, then `import wirecell.img.<module>` or run the `wirecell-img` CLI:
 
@@ -70,7 +70,7 @@ Data model: a **cluster graph** is a `networkx.Graph` whose nodes carry a single
 
 **`group_keys(arf)`** — 아카이브 안에 들어있는 파일 목록(키)을 훑어서, 하나의 JSON 파일에 해당하는 키인지, 아니면 클러스터 하나를 이루는 여러 numpy 배열 키 묶음(`cluster_<n>_<kind>` 형태)인지를 그룹으로 묶어주는 내부 함수다.
 
-이 저장소(`img_evaluation`)의 `scripts/utils/load.py`에 있는 `load_cluster_data` 함수가 내부적으로 호출하는 것이 바로 이 `wirecell.img.tap.load`다.
+이 저장소(`wirecell-img-evaluation`)의 `scripts/utils/load.py`에 있는 `load_cluster_data` 함수가 내부적으로 호출하는 것이 바로 이 `wirecell.img.tap.load`다.
 
 ## 3. `clusters.py` — `ClusterMap`
 
@@ -189,7 +189,7 @@ Common decorators: `@cluster_file` adds a `cluster-file` argument plus `-B/--und
 
 Run `wirecell-img <command> --help` for full option lists; several options above are abbreviated.
 
-## 11. Current usage inside `img_evaluation`
+## 11. Current usage inside `wirecell-img-evaluation`
 
 As of this writing, only two files in this repo import `wirecell.img` directly.
 

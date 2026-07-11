@@ -6,7 +6,7 @@ depo 기반 "true blob" 생성 아이디어를 검토하고 실행 계획을 세
 실제 구현 결과와 코드 설명은 `docs/true_blob_prototype.md`를 참고한다.
 
 ## 1. Context & 목적
-* **프로젝트 개요**: `img_evaluation`은 WCT(Wire-Cell Toolkit) 3D imaging 재구성 결과(blob)의 전하량(charge) 및 위치(position) 정확도를 depo(실제 물리량, ground-truth)와 직접 비교하여 평가하는 프로젝트다.
+* **프로젝트 개요**: `wirecell-img-evaluation`은 WCT(Wire-Cell Toolkit) 3D imaging 재구성 결과(blob)의 전하량(charge) 및 위치(position) 정확도를 depo(실제 물리량, ground-truth)와 직접 비교하여 평가하는 프로젝트다.
 * **현재 목표**: 재구성된 reco blob과 직접 기하학적으로 비교할 수 있는 "독립적인 true blob"을 depo로부터 생성하는 아이디어를 정립하고 실행 계획을 수립한다.
 
 ## 2. 핵심 발견 및 기존 메커니즘 분석
@@ -21,7 +21,7 @@ depo 기반 "true blob" 생성 아이디어를 검토하고 실행 계획을 세
 * **결론**: "이 reco blob 자리에 진짜로 있어야 할 전하량"은 검증할 수 있으나(charge 정확도 평가), 모양을 그대로 빌려 쓰기 때문에 **"이 자리에 blob이 실제로 존재하는가" 및 "블롭의 모양·위치(position/size)가 맞는가"는 검증할 수 없다.**
 
 ### 2.2 재구성(reco) blob 쪽에서 가용한 데이터
-`img_evaluation/scripts/utils/load.py`의 `load_graph_nodes(cgraph, 'b')`가 반환하는 blob 노드 딕셔너리는 이미 형상 비교에 필요한 충분한 필드를 들고 있다.
+`wirecell-img-evaluation/scripts/utils/load.py`의 `load_graph_nodes(cgraph, 'b')`가 반환하는 blob 노드 딕셔너리는 이미 형상 비교에 필요한 충분한 필드를 들고 있다.
 * `corners`: 실제 $y, z$ 좌표로 변환된 폴리곤 꼭짓점 리스트 (`[x_ns, y_mm, z_mm]`)
 * `bounds`: 평면별 wire-index 범위
 * `start` / `span`: 시간 slice 정보

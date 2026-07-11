@@ -18,10 +18,10 @@ from utils.vis.depo_3d import *
 # from scripts.utils.evaluation.img_evaluation import *
 
 # ==== Common Paramters for PDHD ====
-WIRE_FILE = "/nfs/data/1/yujin/img_evaluation/wire-cell-cfg/det_geo/protodunehd-wires-larsoft-v1.json.bz2"
+WIRE_FILE = "/nfs/data/1/yujin/wirecell-img-evaluation/wire-cell-cfg/det_geo/protodunehd-wires-larsoft-v1.json.bz2"
 
-DATA_BASE_PATH = "/nfs/data/1/yujin/img_evaluation/data/pdhd"
-OUTPUT_PATH = "/nfs/data/1/yujin/img_evaluation/results/pdhd/test_point_depo"
+DATA_BASE_PATH = "/nfs/data/1/yujin/wirecell-img-evaluation/data/pdhd"
+OUTPUT_PATH = "/nfs/data/1/yujin/wirecell-img-evaluation/results/pdhd/test_point_depo"
 
 V_DRIFT = 1.6 # [us]
 T_SPAN = 2 # [us]

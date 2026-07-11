@@ -14,9 +14,9 @@ CHARGE=-50000       # electrons/step (negative)
 STEP=1          # mm, for point depo use 1
 
 
-CFG=/nfs/data/1/yujin/img_evaluation/wire-cell-cfg/pdhd/wct-sim-nf-sp-img-bdf.jsonnet
-BEE_CONVERT=/nfs/data/1/yujin/img_evaluation/wire-cell-cfg/pdhd/wct-img-2-bee-hd-bdf.py
-UPLOAD=/nfs/data/1/yujin/img_evaluation/wire-cell-cfg/pdhd/upload-to-bee.sh
+CFG=/nfs/data/1/yujin/wirecell-img-evaluation/wire-cell-cfg/pdhd/wct-sim-nf-sp-img-bdf.jsonnet
+BEE_CONVERT=/nfs/data/1/yujin/wirecell-img-evaluation/wire-cell-cfg/pdhd/wct-img-2-bee-hd-bdf.py
+UPLOAD=/nfs/data/1/yujin/wirecell-img-evaluation/wire-cell-cfg/pdhd/upload-to-bee.sh
 
 TLA_ANODES="[$(echo $ANODES | tr ' ' ',')]"
 
