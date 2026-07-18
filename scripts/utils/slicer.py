@@ -124,7 +124,7 @@ class Binning:
         return self._minval + (ind + 0.5) * self._binsize
 
     def edge(self, ind):
-        """Returns the boundary coordinate of a bin index.
+        """Returns the boundary coordinate of a bin index.(Start edges)
 
         Args:
             ind (int): The bin index.
@@ -202,6 +202,29 @@ def gbounds(L1, L2, mean=0.0, sigma=1.0):
         float or numpy.ndarray: The absolute value of the integral between L1 and L2.
     """
     return abs(gcumulative(L2, mean, sigma) - gcumulative(L1, mean, sigma))
+
+def truncated_gaussian_mean(L1, L2, mean=0.0, sigma=1.0):
+    """Calculates the mean of a Gaussian(mean, sigma) restricted to [L1, L2].
+
+    Standard truncated-normal mean formula, expressed via the existing
+    (unstandardized) gaussian_pdf/gcumulative so it stays consistent with
+    gbounds.
+
+    Args:
+        L1 (float): Lower limit.
+        L2 (float): Upper limit.
+        mean (float, optional): Mean of the distribution. Defaults to 0.0.
+        sigma (float, optional): Standard deviation of the distribution. Defaults to 1.0.
+
+    Returns:
+        float: The mean of the distribution restricted to [L1, L2]. Falls
+            back to the interval midpoint if the enclosed probability mass
+            is ~0 (the formula is numerically undefined there).
+    """
+    mass = gcumulative(L2, mean, sigma) - gcumulative(L1, mean, sigma)
+    if sigma <= 0 or abs(mass) < 1e-12:
+        return (L1 + L2) / 2.0
+    return mean - (sigma ** 2) * (gaussian_pdf(L2, mean, sigma) - gaussian_pdf(L1, mean, sigma)) / mass
 
 def gaussian_bins(binning_obj, mean=0.0, sigma=1.0):
     """Integrates a Gaussian distribution over each bin in a Binning object.

@@ -97,7 +97,7 @@ def plot_depo_gaussian_long_ax(ax, depo, v_drift, t_offset_us, index=0, n_sigma=
 
     y_dens = (total_q / (sigma * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((t_cont - mean) / sigma) ** 2)
 
-    ax.plot(t_cont, y_dens, color='royalblue', lw=1.0, ls='--',
+    ax.plot(t_cont, y_dens, color='royalblue', lw=1.0, ls='-',
             label='Depo (Gaussian)', alpha=0.8, zorder=3)
     ax.fill_between(t_cont, y_dens, color='royalblue', alpha=0.1, zorder=2)
 
@@ -191,7 +191,7 @@ def plot_slice_edges_long_ax(ax, binning_obj, set_limit=False, show_labels=True)
     nbins = binning_obj.nbins()
     for i in range(nbins + 1):
         edge_t = binning_obj.edge(i)
-        ax.axvline(edge_t, color='gray', linestyle=':', lw=0.5, alpha=0.5, zorder=1)
+        ax.axvline(edge_t, color='black', linestyle=':', lw=2, alpha=0.5, zorder=1)
 
     if set_limit:
         ax.set_xlim(binning_obj.min(), binning_obj.max())

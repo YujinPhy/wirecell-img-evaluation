@@ -354,6 +354,7 @@ function() {
         name: "blobdepo-filler-%s"%name,
         data: {
             speed: drift_speed, //1.56*wc.mm/wc.us, 
+            // time_offset: 313.898*wc.us, //314*wc.us,
             time_offset: 314.5*wc.us, //314*wc.us,
         }
     }, nin=2, nout=1, uses=anodes),

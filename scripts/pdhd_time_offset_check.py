@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 from wirecell import units
 
 from utils.load import load_cluster_data, load_generation_data, load_graph_nodes
-from utils.time_offset import analytic_time_offset, scan_residual
+from scripts.time_offset import analytic_time_offset, scan_residual
 from utils.vis.plot_utils import save_and_show
 
 DATA_DIR = "data/pdhd/test_point_depo"

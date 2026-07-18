@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from matplotlib import patches
 
 from utils.vis.plot_utils import save_and_show
-from utils.eval.position_shape import reco_blob_polygon
+from docs.axive.position_shape import reco_blob_polygon
 
 
 def nearest_reco_blob(true_blob, reco_blobs):

@@ -1,19 +1,16 @@
-# Time Offset Calibration (`Img::BlobDepoFill`)
+# `Img::BlobDepoFill` Time Offset Calibration 
 
 ## 1. Summary
 
-`Img::BlobDepoFill`이 depo truth time과 reconstructed blob time을 짝짓는 데 쓰는 상수 `time_offset`의 origin을 분석하고, 이전 `scripts/timeoffset/` 스터디의 방법론과 한계를 정리하고, 이를 대체하는 새 calibration 방법론(`scripts/utils/time_offset.py`, `scripts/pdhd_time_offset_check.py`)과 검증 결과를 기록한 문서다.
+`Img::BlobDepoFill` 컴포넌트의 인자 `time_offset`은 true depo와 reconstructed blob의 drift time의 offset을 설정하는 역활을 한다. 본 문서에서는 `time_offset`의 origin을 분석하고, 이전 스터디의 방법론과 한계를 정리하고, 이를 대체하는 새 calibration 방법론(`scripts/utils/time_offset.py`, `scripts/pdhd_time_offset_check.py`)과 검증 결과를 기록한 문서다.
+
 핵심 결론은 `time_offset`이 임의의 자유 매개변수가 아니라, PDHD 시뮬레이션에 이미 쓰이는 다른 jsonnet 파라미터로부터 정확히 계산 가능한 baseline과, 그 위에 얹히는 작은 residual의 합으로 분해된다는 것이다.
 
 ## 2. 배경
 
-`Img::BlobDepoFill::slice_and_dice_depos()`(`wire-cell-toolkit/img/src/BlobDepoFill.cxx:114-136`)는 `tmean = idepo->time() + time_offset`을 계산해 blob의 `ISlice` bin과 비교한다.
-이 클래스는 drift 물리량에 대한 내부 지식이 전혀 없고, `time_offset`을 그대로 caller가 넘겨받은 값으로 사용한다.
-`img/docs/BlobDepoFill.org`는 이 값을 caller가 직접 맞춰야 한다고 명시하며, ParaView에서 depo와 blob의 X축 정렬을 눈으로 확인하는 방법까지 제안한다.
-`wire-cell-cfg/pdhd/img.jsonnet:357`의 현재 값은 `time_offset: 314.5*wc.us`이며, 이 값은 순수하게 경험적으로(`scripts/timeoffset/`의 스캔으로) 도출된 것이었다.
+`Img::BlobDepoFill::slice_and_dice_depos()`(`wire-cell-toolkit/img/src/BlobDepoFill.cxx:114-136`)는 `tmean = idepo->time() + time_offset`을 계산해 blob의 `ISlice` bin과 비교한다. 이 클래스는 drift 물리량에 대한 내부 지식이 전혀 없고, `time_offset`을 그대로 jsonnegt cfg에서 넘겨받은 값으로 사용한다. `img/docs/BlobDepoFill.org`는 이 값을 직접 맞춰야 한다고 명시하며, ParaView에서 depo와 blob의 X축 정렬을 눈으로 확인하는 방법까지 제안한다. `wire-cell-cfg/pdhd/img.jsonnet:357`의 현재 값은 `time_offset: 314.5*wc.us`이며, 이 값은 순수하게 경험적으로 도출된 것이었다. (2026-02 study 진행)
 
-이 상수가 정확하지 않으면 `docs/true_blob_prototype.md`의 §6.3에서 다룬 것처럼, depo 기반 true blob과 reco blob 사이의 시간축 비교(`time_overlap_frac`, `charge_rel_error`)가 항상 의미 없는 값(겹침 없음)을 낸다.
-`docs/true_blob_prototype.md`는 이 문제를 우회하기 위해 시간 겹침 대신 폴리곤 중심 거리로 blob을 짝지었으나, 시간축 지표 자체는 이 offset이 calibrate되기 전까지 신뢰할 수 없다고 명시했다([[true_blob_prototype#6.3|§6.3]] 참고).
+이 상수가 정확하지 않으면 performance evaluation에서 `BlobDepoFill`을  통한 charge 정보 및 시간축(x축) 비교를 정확하게 진행할 수 없다. `314.5`라는 수치는 정보를 어느정도 근사하게 주는 것 같지만, 현재 정확한 time offset의 원인과 영향에 대한 스터디는 이루어지지 않았다.
 
 ## 3. 원인 분석: `time_offset`은 어디서 오는가
 
@@ -21,36 +18,161 @@
 
 ### 3.1 depo 시간의 기준: `Gen::Drifter`
 
-이 저장소의 study 데이터가 쓰는 depo 파일(`depos-drifted-N.zip`)은 `Gen::Drifter` 직후에서 탭된, drift 후(post-drift) truth time이다(`wire-cell-cfg/pdhd/wct-sim-nf-sp-img-bdf.jsonnet:239-263`, `dsf` edge 2 -> `drifted_depos`).
-`Gen::Drifter`는 원본 depo 시간에 response plane까지의 drift transit time(`(respx - pos.x())/speed`)만 더하며, epoch 자체를 바꾸지는 않는다(`gen/src/Drifter.cxx:154,182`).
-즉 이 depo 시간은 여전히 원본 G4 clock 위에 있는, response plane 도달 시각이다.
+`Gen::Drifter`는 depo의 initial time에 response plane까지의 drift time`dt`만 더한다(`gen/src/Drifter.cxx:154,182`). 즉 이 depo 시간은 response plane 도달 시각이다.
+
+```cpp
+double respx = 0, direction = 0.0;
+auto xrit = std::find_if(m_xregions.begin(), m_xregions.end(), Gen::Drifter::IsInsideResp(depo));
+
+(...)
+
+respx = xrit->response->location();
+direction = -1.0;
+
+const double dt = std::abs((respx - pos.x()) / m_speed);
+```
+
+> 예시 - Anode1 (`data/pdhd/test_point_depo/depos-drifted-1.zip`)
+> - response plane 위치: 3430.465mm (face1)
+> - depo intial x poistion: 1500mm
+> - depo intial time: 0ns 
+> - m_speed = 1.6 mm/us
+>  
+> -> dt = 1206.540625us , depo파일에 저장된 값: 1206540.6ns = 1206.540625us (match!)
 
 ### 3.2 reco frame 시간의 기준: `tick0_time`과 `ductor`/`reframer`의 자기상쇄 설계
 
 PDHD의 frame 시간축 원점은 다음과 같이 구성된다.
 
-- `tick0_time = -250*wc.us`(`cfg/pgrapher/experiment/pdhd/params.jsonnet:147`): output tick 0이 어떤 절대(G4) 시각에 대응하는지를 정하는, 순수한 DAQ/G4-clock 관례다.
-  물리량이 아니라 detector/production마다 고정하는 convention이다.
-- `response_time_offset = det.response_plane / lar.drift_speed = 100mm / 1.6mm/us = 62.5us`(`params.jsonnet:151`).
-- `ductor.start_time = tick0_time - response_time_offset = -312.5us`(`params.jsonnet:157`): induction 신호가 완전히 빌드업되도록 ductor의 gate를 그만큼 미리 연다.
-- `reframer.tbin = response_nticks`(그 62.5us에 해당하는 tick 수), `toffset: 0`(`cfg/pgrapher/experiment/pdhd/sim.jsonnet:28-40`): 앞서 미리 열어둔 만큼을 다시 잘라내, Reframer 이후 `frame->time()`을 정확히 `tick0_time = -250us`로 복원한다.
+```
+tick0_time = -250*wc.us # params.jsonnet:147
+
+response_time_offset = det.response_plane / lar.drift_speed # 100mm / 1.6mm/us = 62.5us, params.jsonnet:151
+
+ductor.start_time = tick0_time - response_time_offset # -312.5us, params.jsonnet:157
+```
+
+- `tick0_time`: output tick 0이 어떤 절대(G4) 시각에 대응하는지를 정하는, 순수한 DAQ/G4-clock 관례다. 물리량이 아니라 detector/production마다 고정하는 convention이다.
+- `ductor.start_time`: induction 신호가 완전히 빌드업되도록 ductor의 gate를 그만큼 미리 연다.
+- `reframer.tbin = response_nticks(pdhd/params.jsonnet:179-182)`: `response_time`에 해당하는 tick 수
+    - `tick: 0.5*wc.us`
+    - 
+
+
+, `toffset: 0`(`cfg/pgrapher/experiment/pdhd/sim.jsonnet:28-40`): 앞서 미리 열어둔 만큼을 다시 잘라내, Reframer 이후 `frame->time()`을 정확히 `tick0_time = -250us`로 복원한다.
+
+
+```
+
+
+# pdhd/params.jsonnet:179-182
+reframer: {
+    tbin: response_nticks, # wc.roundToInt(response_time_offset / $.daq.tick), tick: 0.5*wc.us
+    nticks: $.daq.nticks, # 10000
+}
+
+# pdhd/sim.jsonnet:28-40
+local reframers = [
+        g.pnode({
+            type: 'Reframer',
+            name: 'reframer-'+tools.anodes[n].name,
+            data: {
+                anode: wc.tn(tools.anodes[n]),
+                tags: [],           // ?? what do?
+                fill: 0.0,
+                tbin: params.sim.reframer.tbin,
+                toffset: 0,
+                nticks: params.sim.reframer.nticks,
+            },
+        }, nin=1, nout=1) for n in std.range(0, nanodes-1)],
+```
 
 이 부분은 설계상 완전히 자기상쇄(self-canceling)된다.
 `img/src/SumSlice.cxx:90`와 `MaskSlice.cxx:347`을 확인한 결과, blob의 `ISlice` `start`는 `inframe->time() + slicebin * span`으로 실제 `frame->time()`을 포함해 계산되므로, 이 자기상쇄가 blob 쪽에도 그대로 반영된다.
 
 ### 3.3 SP residual: `OmnibusSigProc`의 `ctoffset`/`intrinsic_time_offset`
 
-`sigproc/src/OmnibusSigProc.cxx`는 deconvolution 후 samples를 `time_shift = (ctoffset + intrinsic_time_offset)/tick`만큼 내부적으로 재인덱싱한다(`OmnibusSigProc.cxx:1297`, `intrinsic_time_offset = fr.origin/fr.speed`는 `:919`).
+`wire-cell-toolkit/sigproc/src/OmnibusSigProc.cxx`는 deconvolution 후 samples를 내부적으로 재인텍싱한다. 
+
+```cpp
+cfg["ctoffset"] = m_coarse_time_offset; #L316
+
+m_period = frame->tick(); #L828
+m_intrinsic_time_offset = fr.origin / fr.speed; #L919
+
+int time_shift = (m_coarse_time_offset + m_intrinsic_time_offset) / m_period; #L1303
+
+
+    -> `time_shift` = (ctoffset + intrinsic_time_offset)/tick`
+```
+
+PDHD의 경우, `ctoffeset`은 `sp.jsonnet`에서 `ctoffset: 1.0*wc.microsecond`로 override한다
+
 PDHD의 `sp.jsonnet`은 `ctoffset: 1.0*wc.microsecond`로 override한다(기본값은 다른 detector에서 `-8.0us`).
+
+
 문제는, 이 재인덱싱이 `frame->time()`을 갱신하지 않는다는 점이다(`OmnibusSigProc.cxx:2102`에서 출력 frame이 `in->time()`을 그대로 유지하는 것을 확인했다).
+
 즉 §3.2의 자기상쇄 설계가 정확히 성립하려면 SP 단계가 tick-index와 절대시간의 대응을 보존해야 하는데, 이 재인덱싱이 그 대응을 조용히 어긋나게 만든다.
 이것이 config만으로는 문서화되지 않는, chain에서 유일하게 "self-documenting"하지 않은 연결고리다.
+
+`OmnibusSigProc.cxx` 안에는 이 `time_shift` 외에도 시간축을 만지는 지점이 더 있다.
+
+- **`init_overall_response()`의 `ftoffset`(`m_fine_time_offset`) shift (`:947-961`)**: `decon_2D_init`의 `time_shift`(`ctoffset + intrinsic_time_offset`)와는 별개의 파라미터다. Raw 데이터가 아니라 field×electronics response 파형 자체를, SP tick 그리드로 리샘플링하기 전에 fine-grid(response 고유 grid) 단위로 순환 이동시킨다.
+  ```cpp
+  int fine_time_shift = m_fine_time_offset / fravg.period;   // ftoffset, cfg: `:63,315`
+  ```
+- **`init_overall_response()`의 fine→coarse 리샘플링 time-origin (`:964-1001`)**: response를 `fravg.period`(fine grid)에서 `m_period`(SP tick)로 linear interpolation redigitize하는 부분이다. 명시적 offset 파라미터는 아니지만, 코드 주석(`:980-988`)에 예전 boxcar 방식 대비 이 리샘플링이 `-200ns`만큼 time origin을 이동시켰다는 경고가 남아 있어, 사실상 시간 정렬을 결정하는 지점 중 하나다.
+- **`init_overall_response()`의 시간축 pad 폭 설정 (`:840-853`)**: `m_pad_nticks = m_fft_nticks - m_nticks`로 `decon_2D_init`이 쓸 시간축 padding 폭을 결정한다. 다만 `m_pad_nticks` 변수 자체는 이 파일 안에서 다시 읽히는 곳이 없다.
+- **`load_data()`의 입력 trace `tbin` 소비 (`:424-430`)**: `OmnibusSigProc`이 계산하는 offset이 아니라, 입력 프레임 각 trace가 이미 갖고 있는 `tbin`을 그대로 배치 위치로 쓴다. `// fixme: this code uses tbin() but other places in this file will barf if tbin!=0`(`:424`) 주석대로, 이후 단계는 전부 `tbin==0`을 암묵적으로 가정한다.
+- **7개 `decon_2D_*` 함수의 시간축 crop (`decon_2D_ROI_refine`/`decon_2D_tightROI`/`decon_2D_tighterROI`/`decon_2D_looseROI`/`decon_2D_looseROI_debug_mode`/`decon_2D_hits`/`decon_2D_charge`, `:1469,1514,1560,1652,1701,1765,1798`)**: 전부 `m_r_data[plane] = tm_r_data.block(m_pad_nwires[plane], 0, m_nwires[plane], m_nticks)` 패턴을 반복한다. `decon_2D_init` 안의 `unpad_data()`는 wire 방향 padding만 제거하고 시간축은 `m_fft_nticks` 길이로 그대로 남기므로, FFT용으로 늘렸던 시간축 padding이 실제로 제거되는 지점은 `decon_2D_init`이 아니라 이 7개 하위 함수 각각이다.
+
+(`pad_data()`/`unpad_data()`는 wire(공간) 방향 padding만 다루고 시간축과는 무관하다.)
 
 ### 3.4 종합: `312.5us`라는 우연의 일치
 
 `abs(tick0_time) + response_time_offset = 250 + 62.5 = 312.5us`는, 이전 스터디의 git 이력에서 실제로 시도됐던 값 중 하나(`git show 8d0255f`의 초기 `img.jsonnet`, `time_offset: 312.5*wc.us`)이자, 경험적으로 수렴한 값들의 최저점(`312.5` -> `314.667` -> 현재 `314.5`)과 정확히 일치한다.
 이는 우연이 아니라, 이전 스터디의 blind scan이 실제로는 이 analytic quantity 주변으로 수렴하고 있었다는 강한 증거다.
 남은 잔차(수 us)는 §3.3의 `ctoffset`/`intrinsic_time_offset` 재인덱싱, 혹은 field response의 실제 peak time이 `response_plane/drift_speed`로 단순 계산한 값과 정확히 일치하지 않는 효과(다른 detector에서 실제로 문서화된 사례가 `simparams.jsonnet:182-197`의 MicroBooNE 관련 주석에 있다: "Garfield field response에서 collection plane peak가 `response_plane/drift_speed`가 아니라 약 $81us$ 근방에서 생긴다")로 설명 가능하다.
+
+### 3.5 검증: `intrinsic_time_offset`을 실제 PDHD field response 파일에서 계산
+
+§3.3의 `intrinsic_time_offset = fr.origin / fr.speed`(`OmnibusSigProc.cxx:919`)를 PDHD가 실제로 쓰는 field response 파일로 직접 계산해, §3.4에서 추측만 하고 있던 잔차 원인을 구체적인 수치로 확인했다.
+
+`wire-cell-toolkit/cfg/pgrapher/experiment/pdhd/params.jsonnet:172`에서 anode 0(face 0)이 참조하는 파일은 `np04hd-garfield-6paths-mcmc-bestfit.json.bz2`다. 이 파일의 `FieldResponse`를 직접 읽으면:
+
+```
+fr.origin = 100.0        (mm)
+fr.speed  = 0.001565      (mm/ns) = 1.565 mm/us
+```
+
+```
+intrinsic_time_offset = fr.origin / fr.speed = 100.0 / 0.001565 = 63.898us
+```
+
+반면 §3.2의 `response_time_offset`(ductor/reframer 자기상쇄 설계에 쓰이는 값)은 detector params의 `lar.drift_speed`(1.6mm/us)로 계산된다:
+
+```
+response_time_offset = det.response_plane / lar.drift_speed = 100mm / 1.6mm/us = 62.5us
+```
+
+`fr.origin`(100mm)과 `det.response_plane`(100mm)은 같은 값을 가리키지만, **`intrinsic_time_offset`은 field response 파일에 내장된 speed(1.565mm/us, Garfield 계산 시 가정한 값)로, `response_time_offset`은 detector params가 정의한 `lar.drift_speed`(1.6mm/us)로 계산되어 서로 다르다.** 그 차이는:
+
+```
+63.898us - 62.5us = 1.398us
+```
+
+이 값은 §6에서 측정한 residual(analytic baseline 312.5us -> 좁은 스캔 최적값 313.9us, `+1.400us`)과 거의 정확히 일치한다. 즉 이전까지 "SP residual"이라고만 불렀던 것의 상당 부분은, `intrinsic_time_offset`과 `response_time_offset`이 같은 물리량(response plane까지의 drift time)임에도 서로 다른 drift speed 값으로 계산되기 때문에 생기는 구체적이고 재현 가능한 어긋남이다.
+
+나머지 후보였던 `ftoffset`(`m_fine_time_offset`, §3.3)은 PDHD `sp.jsonnet:107`에서 `ftoffset: 0.0`으로 명시적으로 꺼져 있음을 확인했다 — 이 프로젝트에서는 기여분이 0이므로 후보에서 제외할 수 있다. `ctoffset`(1.0us, §3.3)과 §3.3의 보간(`-200ns`) time-origin 항은 여전히 남은 잔차(스캔 최적값 313.9us와 현재 설정값 314.5us 사이의 `0.6us`)의 후보로 남아 있다.
+
+
+
+
+
+
+
+
 
 ## 4. 이전 스터디(`scripts/timeoffset/`) 리뷰
 

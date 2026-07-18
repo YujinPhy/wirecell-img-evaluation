@@ -21,7 +21,7 @@ from utils.vis.plot_utils import save_and_show
 
 
 # ==== For a Point Depo ====
-def plot_depo_gaussian_tran_ax(ax, depo, slice_charge, n_sigma=5, set_limit=False, show_labels=True):
+def plot_depo_gaussian_tran_ax(ax, depo, slice_charge, n_sigma=5, set_limit=False, show_labels=True, index=0):
     """Plots a transverse Gaussian charge distribution for a single depo on a given axis.
 
     Args:
@@ -31,13 +31,14 @@ def plot_depo_gaussian_tran_ax(ax, depo, slice_charge, n_sigma=5, set_limit=Fals
         n_sigma: The range of the plotted Gaussian curve in units of sigma (default is 5).
         set_limit: If True, automatically adjusts the axis limits to the calculated n_sigma range.
         show_labels: If True, adds labels, title, and legend to the axes.
+        index: Which entry of `depo` to plot, for multi-depo dicts (default 0).
     """
     if depo is None:
         print("[ERROR] Fail to load the Depo file.")
         return 0
 
-    sigma = depo['T'][0]  # [mm]
-    y_cen, z_cen = depo['y'][0], depo['z'][0]  # [mm]
+    sigma = depo['T'][index]  # [mm]
+    y_cen, z_cen = depo['y'][index], depo['z'][index]  # [mm]
     slice_charge = abs(slice_charge)
 
     grid_res = 300
