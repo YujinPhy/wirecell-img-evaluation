@@ -20,12 +20,6 @@
 - Code: `scripts/position_center_comparison.py`
 
 #### 1. 데이터 스캔
-
-
-
-
-
-
 `scan_positions()`가 `base_dir` 하위 서브디렉터리를 스캔하여 나열 및 경로 리스트를 생성, 좌표는 항상 로드된 데이터에서 얻으며 디렉터리 이름은 순회용으로만 사용
 - Data: `/nfs/data/1/yujin/wirecell-img-evaluation/data/pdhd/point_depos_Y300Z100_small` 하위 좌표에 따른 (depo, blob) 쌍
     - 34개 `X*_Y300_Z100` 서브디렉터리를 나열하고, 각각에 `depos-drifted-1.zip`/`clusters-apa-1.tar.gz`(anode_index=1 고정)가 있는지만 확인. 디렉터리 이름은 순회용으로만 쓰고, 좌표는 항상 로드된 데이터에서 얻는다.
@@ -55,35 +49,7 @@ Reconstruction Blob과 그 blob이 존재하는 slice의 depo의 중심간의 �
 
 
 
-
-실행 커맨드:
-```bash
-source ../wire-cell-python/venv/bin/activate
-export PYTHONPATH="/home/yujin/projects/WireCell"
-python scripts/position_center_comparison.py
-```
-
-콘솔 출력(요약):
-```
-[INFO] Found 34 position directories
-[INFO] Collected 118 (position, blob) records from 34 usable positions
-[INFO] x-axis: mean=0.309mm std=3.127mm within_1sigma=59.3% [FAIL] (criterion: >=95%)
-[INFO] y-axis: mean=-41.834mm std=272.933mm within_1sigma=97.5% [PASS] (criterion: >=95%)
-[INFO] z-axis: mean=-0.282mm std=1.570mm within_1sigma=66.1% [FAIL] (criterion: >=95%)
-[INFO] 66/118 records flagged as outliers (>1 sigma on any axis)
-```
-
-스킵된 위치나 로딩 에러는 없었다(34/34 위치 모두 사용 가능, 위치당 평균 3.47개 blob).
-
-`center_diff_histograms.png`를 육안 확인한 결과, x/z축은 완만하게 퍼진 다봉형(multi-modal) 분포(±2~6mm 범위)인 반면, y축은 0 부근에 대부분(115/118)이 몰려 있고 극소수(3개)가 -1300~-2360mm 스케일로 멀리 떨어진 형태였다 — 즉 표준편차(272.9mm)가 이 3개 이상치에 의해 지배되고 있음을 그래프에서도 바로 확인할 수 있었다.
-
-Outlier 시각화 중 `X220_Y300_Z100_blob0_overlay.png`를 직접 열어 확인한 결과, 이 blob(`val=0`)의 corner 6개가 (y≈3000mm 근처 3개) + (y≈650mm 근처 3개)로 완전히 분리된 두 군집을 이루고 있었다 — 정상적인 blob이라면 corner들이 depo 주변에 조밀하게 모여야 하는데, 이 경우는 전하가 0인 채로 기하학적으로 뒤틀린(degenerate) 폴리곤이 만들어진 것으로 보인다. x축(시간축)은 이 blob도 depo Gaussian의 피크와 잘 맞았다(dx=4.07mm) — 즉 시간축 매칭은 정상이지만 (y,z) corner 집합 자체가 비정상인 경우였다.
-
-반면 정상 전하를 가진 outlier(`X70_Y300_Z100_blob3_overlay.png`, 이 blob도 `val`은 매우 작음)는 depo Gaussian의 꼬리(오른쪽 끝) 부근 time slice였고, corner들이 depo 주변에 조밀하게 모여 있되 중심이 수 mm(dy=3.11mm, dz=-1.91mm, dx=-6.34mm) 어긋난, 훨씬 "정상적인" 형태의 outlier였다.
-
----
-
-## 5. Result Verification & Validation
+## Result Verification & Validation
 
 ### 5.1 Evaluation
 

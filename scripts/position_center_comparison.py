@@ -163,34 +163,6 @@ def scan_positions(base_dir, anode_index,
 
 
 # ==== Utils ====
-def get_slice_info(reco_graph):
-    """Lists every slice present in a reco blob cluster file, with its time window.
-
-    Args:
-        reco_file (str): Path to a `clusters-apa-<N>.tar.gz` reco blob file.
-
-    Returns:
-        list[dict]: One entry per slice node (`code='s'`), each with
-            `slice_id`, `start`, `end` (`start + span`), and `span` (all in
-            ns, matching the underlying `ISlice` fields).
-    """
-    cgraph = reco_graph
-    if cgraph is None:
-        print(f"[WARNING] No cluster graph, skipping")
-        return []
-
-    slices = load_graph_nodes(cgraph, "s")
-    return [
-        {
-            "slice_id": s["ident"],
-            "start": s["start"],
-            "end": s["start"] + s["span"],
-            "span": s["span"],
-        }
-        for s in slices
-    ]
-
-
 def convert_time2x(t_us, v_drift, response_plane_x):
     """Converts a time (us) to a physical x position (mm) using the drift velocity and anode position.
 
