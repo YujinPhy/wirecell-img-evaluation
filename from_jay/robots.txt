@@ -1,9 +1,0 @@
-# let yacy have its way.
-User-agent: yacybot
-Disallow:
-
-User-agent: *
-Disallow: /schoolbell
-Disallow: /computing
-Disallow: /trac
-
