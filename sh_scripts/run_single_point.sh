@@ -5,7 +5,7 @@
 ANODES="1"
 
 # Point definition (see wct-sim-nf-sp-img-bdf.jsonnet's function args)
-THETA_XZ_DEG=45   # deg
+THETA_XZ_DEG=0   # deg
 LEN=0.1            # cm
 X_START=150       # cm
 Y_START=300       # cm

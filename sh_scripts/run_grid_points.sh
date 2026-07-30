@@ -1,16 +1,17 @@
 #!/bin/sh
 
-# ==== Run parameters (forwarded to CFG's jsonnet TLAs) ====
+###################################################################################
+# Run parameters (forwarded to CFG's jsonnet TLAs)
+###################################################################################
 # Anode indices to simulate and convert (space-separated, any subset of 0-3).
 ANODES="1"
 
-# Grid bounds (cm), repeatable in GRID_BOUNDS (one "x_min x_max y_min y_max z_min z_max"
-# entry per line) for multiple anodes/volumes. Fill in real sensitive-volume
-# bounds (e.g. via scripts/utils/wires.py's face_sensitive_bounds, or
+# Grid bounds (mm), one min/max pair per axis. Fill in real sensitive-volume bounds
+# (e.g. via scripts/utils/wires.py's face_sensitive_bounds, or
 # wire-cell-python's own wire-geometry inspection tools) before running.
-GRID_BOUNDS="
-10 345 300 300 100 233
-"
+X_BOUNDS_MM="100 3400"   # x_min x_max, mm (drift direction)
+Y_BOUNDS_MM="3000 3000"  # y_min y_max, mm
+Z_BOUNDS_MM="1000 1000"  # z_min z_max, mm
 
 DX_MM=100   # drift (x) spacing, mm
 DY_MM=0    # pitch-plane (y) spacing, mm
@@ -20,32 +21,41 @@ TIME_US=0
 TIME_STEP_US=0  # us between consecutive points' depo time (regular interval);
                     # 0 keeps all points at TIME_US.
 
-THETA_XZ_DEG=45  # deg, per-point track direction (see run_single_point.sh)
+THETA_XZ_DEG=0  # deg, per-point track direction (see run_single_point.sh)
 LEN=0.1           # cm, per-point track length
 STEP=1            # mm, for point depo use 1
 
-
-CFG=/nfs/data/1/yujin/wirecell-img-evaluation/wire-cell-cfg/pdhd/wct-sim-nf-sp-img-bdf-grid.jsonnet
-BEE_CONVERT=/nfs/data/1/yujin/wirecell-img-evaluation/wire-cell-cfg/pdhd/wct-img-2-bee-hd-bdf.py
-UPLOAD=/nfs/data/1/yujin/wirecell-img-evaluation/wire-cell-cfg/pdhd/upload-to-bee.sh
-GRID_GEN=/nfs/data/1/yujin/wirecell-img-evaluation/scripts/pdhd_generate_point_grid.py
+# Grid position file (JSON)
 GRID_JSON="$(pwd)/grid_points.json"
 
+###################################################################################
+# Required Scripts
+###################################################################################
+# Generate grid points (point cloud) for the given anodes and bounds, with the specified spacing and charge/time parameters.
+GRID_GEN=/nfs/data/1/yujin/wirecell-img-evaluation/scripts/point_depo_grid_generator.py
+
+# WireCell Jsonnet cfg
+CFG=/nfs/data/1/yujin/wirecell-img-evaluation/wire-cell-cfg/pdhd/wct-sim-nf-sp-img-bdf-grid.jsonnet
+
+# Bee conversion script and upload script (to generate a Bee URL for the results).
+BEE_CONVERT=/nfs/data/1/yujin/wirecell-img-evaluation/wire-cell-cfg/pdhd/wct-img-2-bee-hd-bdf.py
+
+# Upload script to generate a Bee URL for the results.
+UPLOAD=/nfs/data/1/yujin/wirecell-img-evaluation/wire-cell-cfg/pdhd/upload-to-bee.sh
+
+####################################################################################
+# Run the grid points simulation and convert to Bee display.
+####################################################################################
+# 1. Activate the Wire-Cell Python virtual environment 
 export PYTHONPATH="/nfs/data/1/yujin/wire-cell-python/venv/lib/python3.11/site-packages:/nfs/data/1/yujin/wire-cell-python"
 source /nfs/data/1/yujin/wire-cell-python/venv/bin/activate
 
-# Build --bounds args, one per non-empty GRID_BOUNDS line
-BOUNDS_ARGS=""
-OLD_IFS="$IFS"
-IFS='
-'
-for line in $GRID_BOUNDS; do
-    [ -z "$(echo "$line" | tr -d '[:space:]')" ] && continue
-    BOUNDS_ARGS="$BOUNDS_ARGS --bounds $line"
-done
-IFS="$OLD_IFS"
-
-python "$GRID_GEN" $BOUNDS_ARGS \
+# 2. Generate the grid points (point cloud) for the given anodes and bounds, with the specified spacing and charge/time parameters via `$GRID_GEN`.
+# point_depo_grid_generator.py's --bounds/--dx/--dy/--dz are all mm now, so
+# these pass straight through; it does its own mm->cm conversion internally
+# right before writing grid_points.json, since the jsonnet (unchanged) still
+# expects cm from that file.
+python "$GRID_GEN" --bounds $X_BOUNDS_MM $Y_BOUNDS_MM $Z_BOUNDS_MM \
     --dx "$DX_MM" --dy "$DY_MM" --dz "$DZ_MM" \
     --charge "$CHARGE" --time "$TIME_US" --time-step "$TIME_STEP_US" \
     -o "$GRID_JSON"
@@ -88,7 +98,9 @@ cat > "$RECORD_FILE" <<EOF
     "cfg": "${CFG}",
     "params": {
         "anodes": ${TLA_ANODES},
-        "grid_bounds_cm": "$(echo "$GRID_BOUNDS" | tr '\n' ';')",
+        "x_bounds_mm": "${X_BOUNDS_MM}",
+        "y_bounds_mm": "${Y_BOUNDS_MM}",
+        "z_bounds_mm": "${Z_BOUNDS_MM}",
         "dx_mm": ${DX_MM},
         "dy_mm": ${DY_MM},
         "dz_mm": ${DZ_MM},

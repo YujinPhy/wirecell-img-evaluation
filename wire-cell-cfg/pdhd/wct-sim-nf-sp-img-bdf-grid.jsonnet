@@ -6,10 +6,10 @@
 //
 // `grid_points` is meant to be injected via jsonnet import, e.g.:
 //   wire-cell ... --tla-code grid_points="import '/abs/path/to/grid.json'" ...
-// where grid.json is produced by scripts/pdhd_generate_point_grid.py and is
+// where grid.json is produced by scripts/point_depo_grid_generator.py and is
 // a JSON list of {x, y, z (cm), charge (electrons/step, negative), time (us)}.
 //
-// See scripts/pdhd_generate_point_grid.py and sh_scripts/run_grid_points.sh.
+// See scripts/point_depo_grid_generator.py and sh_scripts/run_grid_points.sh.
 
 local g = import 'pgraph.jsonnet';
 local f = import 'pgrapher/common/funcs.jsonnet';

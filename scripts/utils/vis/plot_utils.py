@@ -18,8 +18,13 @@ def save_and_show(fig, output_dir, filename, dpi=300, show=True):
         output_dir (str): Directory to save into. Created if missing.
         filename (str): Output file name; ".png" is appended if absent.
         dpi (int, optional): Resolution for the saved file. Defaults to 300.
-        show (bool, optional): If True, calls plt.show() after saving.
-            Set False for batch/headless runs. Defaults to True.
+        show (bool, optional): If True, calls plt.show() after saving. Either way
+            the figure is closed afterward -- leaving it open lets Jupyter's
+            inline backend auto-display it again at the end of cell execution
+            (on top of the explicit plt.show(), producing a duplicate render),
+            and repeated batch calls (e.g. plotting many outlier cases) leak
+            open figures until matplotlib's max-open-figure warning fires.
+            Defaults to True.
 
     Returns:
         str: Full path of the saved file.
@@ -35,5 +40,6 @@ def save_and_show(fig, output_dir, filename, dpi=300, show=True):
 
     if show:
         plt.show()
+    plt.close(fig)
 
     return full_path

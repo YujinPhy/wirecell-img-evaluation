@@ -3,10 +3,9 @@
 ## Summary
 
 `scripts/utils/wires.py`의 `face_sensitive_bounds()`는 wire store JSON만으로 $(y,z)$ 경계만 근사한다 (자체 docstring에 명시된 한계).
-grid depo 생성(`scripts/pdhd_generate_point_grid.py`, `wire-cell-cfg/pdhd/wct-sim-nf-sp-img-bdf-grid.jsonnet`)처럼 drift 방향($x$)까지 포함한 전체 3D sensitive volume이 필요할 때, 어떤 데이터 소스에서 어떤 값을 가져와야 하는지, 그리고 WCT C++ 코드(`AnodePlane.cxx`)가 실제로 어떻게 이 값을 계산하는지 정리한 문서다.
+전체 3D sensitive volume이 필요할 때, 어떤 데이터 소스에서 어떤 값을 가져와야 하는지, 그리고 WCT C++ 코드(`AnodePlane.cxx`)가 실제로 어떻게 이 값을 계산하는지 정리한 문서다.
 
-**결론(필요한 데이터 파일)**: 이 저장소에 새로 추가해야 할 데이터 파일은 없다. 아래 두 소스 모두 이미 디스크에 존재한다.
-
+필요한 데이터 파일: 이 저장소에 새로 추가해야 할 데이터 파일은 없다. 아래 두 소스 모두 이미 디스크에 존재한다.
 1. wire geometry JSON: `wire-cell-cfg/det_geo/protodunehd-wires-larsoft-v1.json.bz2` (이미 이 저장소 안에 있음) — $y,z$ 경계, 그리고 각 face 내 3개 평면(U/V/W)의 $x$ 위치(약 10mm 폭, drift 전체 길이 아님)를 제공.
 2. `simparams.jsonnet`의 `det.volumes` (`/nfs/data/1/yujin/wire-cell-toolkit/cfg/pgrapher/experiment/pdhd/simparams.jsonnet`, `$WIRECELL_PATH`를 통해 sibling 저장소 `wire-cell-toolkit/cfg`에서 resolve됨. 이 저장소의 `wire-cell-cfg/`에는 사본이 없다) — anode cutoff/response/cathode plane의 $x$ 위치(즉 drift 방향 전체 범위)를 제공.
 

@@ -1,28 +1,23 @@
 """Compares point-depo centers to reconstructed blob centers.
 
-Recovers each depo's true (x, y, z) center from its post-drift (Gen0) time
-and compares it against every matched reco blob (`blob_center - depo_center`,
-per axis). Aggregates the differences into histograms, reports each axis's
-median and empirical percentile band (configurable via --percentile), and
-saves per-axis outlier cases (data + a representative sample of overlay
-plots) for visual inspection. See docs/position_eval_center_comparison_Plan.md
-for the design and the empirically-verified depo/blob time-to-x conversion
-formulas.
+모든 depo를 slice 별로 나누어 (x, y, z) 중심을 포스트 드리프트(Gen0) 시간에서 복구하고, 모든 매칭된 reco blob과 비교합니다(`blob_center - depo_center`, 축별).
+차이를 히스토그램으로 집계하고, 각 축의 중앙값과 백분위수 밴드(구성 가능 via --percentile)를 보고하며, 시각적 검사를 위해 축별 이상치 사례(데이터 + 오버레이 플롯 샘플)를 저장합니다.
+`docs/position_eval_center_comparison_report.md`를 참조하십시오.
 
-Supports two ways of recovering the depo/blob correspondence, via --mode:
-  - `per_file` (default): one depo per file, scanned across position
-    subdirectories (e.g. one run of wct-sim-nf-sp-img-bdf.jsonnet per
-    position). Every blob found in a position's file belongs to that
-    position's single depo -- no matching needed.
-  - `one`: multiple point-depo positions packed into a single depo/reco file
-    pair (e.g. one run of wct-sim-nf-sp-img-bdf-grid.jsonnet). Each depo's
-    index carries a distinct expected reco-clock time (its post-drift Gen0
-    `t`, shifted by `t_offset`), and each blob is assigned to whichever
-    depo's expected time is nearest to the blob's own slice-window center
-    (see match_blobs_to_depos). This nearest-center heuristic assumes
-    neighboring positions' depo time distributions don't overlap heavily; it
-    is not a full Gaussian-overlap assignment.
+Supports two ways of recovering the depo/blob correspondence, via --mode:`per_file` or `one`:
 
+1. `per_file`(default): one (depo,blob) per file(position)
+    [`scan_positions` - scanning across position subdirectorie]
+    -> [`collect_groups_per_file` - no matching needed, 단순히 파일 이름으로 로드 및 그룹화]
+
+2. `one`: multiple point-depo positions packed into a single depo/reco file pair
+    `collect_groups_one` 
+        - loads depos/blobs`  
+        - `match_`blobs_to_depo` - matches each blob to the nearest depo by reco-clock time
+    
+이후 코드는 두 모드 모두 동일하게 진행됩니다:
+`collect_records`(각 blob을 `classify_blob`으로 matched/ghost/out_of_range 분류, matched만 diff 계산)
+-> `percentile_analysis` -> `outlier_analysis` -> `plot_outliers`
 Usage:
     source ../wire-cell-python/venv/bin/activate
     export PYTHONPATH="/home/yujin/projects/WireCell"
@@ -51,7 +46,7 @@ from utils.vis.transverse_plots import plot_depo_gaussian_tran_ax
 # ==== Default parameters for the PDHD point-depo scan dataset and analysis ====
 DATA_BASE_DIR = "/nfs/data/1/yujin/wirecell-img-evaluation/data/pdhd/point_depos_Y300Z100_small"
 OUTPUT_DIR = "results/pdhd/position_center_comparison_offset_314p5"
-TAG = "314p5"
+TAG = ""
 ANODE_INDEX = 1
 RESPONSE_PLANE_X = 3430.47   # [mm]
 
@@ -64,7 +59,9 @@ T_OFFSET = 314.5         # [us]
 PERCENTILE = 68.27
 OUTLIER_PERCENTILE = 90.0  # percentile threshold for outlier classification
 
-VAL_THR = 0.0  # minimum blob charge to consider for outlier classification
+VAL_THR = 0.0  # minimum blob charge [e-]; blobs below this are classified as ghost
+GHOST_NSIGMA_TRANS = 5.0  # ghost distance threshold = this * depo's transverse sigma (T)
+DEPO_RANGE_NSIGMA = 3.0   # depo's valid time boundary = mean +/- this * sigma_t
 N_OUTLIER_PLOTS = 50
 
 
@@ -126,11 +123,24 @@ def parse_args():
     parser.add_argument("--outlier-percentile", type=float, default=OUTLIER_PERCENTILE,
                         help="percentile (0-100) of |diff-median| used to classify outliers, computed empirically per axis instead of assuming a mean+std Gaussian band (default: %.1f)" % OUTLIER_PERCENTILE)
     parser.add_argument("--val-thr", type=float, default=VAL_THR,
-                        help="also flag records whose blob charge (val) is below this "
-                             "threshold as outliers, regardless of the percentile check "
-                             "(default: %.1f)" % VAL_THR)
+                        help="minimum blob charge (val); blobs below this are classified as "
+                             "ghost and excluded from the comparison (default: %.1f)" % VAL_THR)
+    parser.add_argument("--ghost-nsigma-trans", type=float, default=GHOST_NSIGMA_TRANS,
+                        help="ghost distance threshold, in units of the depo's own transverse "
+                             "sigma (depos['T']): a blob whose (y,z) center is farther than "
+                             "this many sigma from the depo center is classified as ghost "
+                             "(default: %.1f)" % GHOST_NSIGMA_TRANS)
+    parser.add_argument("--depo-range-nsigma", type=float, default=DEPO_RANGE_NSIGMA,
+                        help="depo's valid time boundary, in units of its own time-domain "
+                             "sigma: a blob whose slice window doesn't overlap "
+                             "[mean +/- this many sigma] is classified as out_of_range "
+                             "(default: %.1f)" % DEPO_RANGE_NSIGMA)
     parser.add_argument("--n-outlier-plots", type=int, default=N_OUTLIER_PLOTS,
                         help="number of outlier cases to plot (default: %d)" % N_OUTLIER_PLOTS)
+    parser.add_argument("--n-ghost-plots", type=int, default=N_OUTLIER_PLOTS,
+                        help="number of ghost blob cases to plot (default: %d)" % N_OUTLIER_PLOTS)
+    parser.add_argument("--n-out-of-range-plots", type=int, default=N_OUTLIER_PLOTS,
+                        help="number of out-of-range blob cases to plot (default: %d)" % N_OUTLIER_PLOTS)
 
     args = parser.parse_args()
     if args.mode == "one" and (args.depo_file is None or args.reco_file is None):
@@ -256,24 +266,63 @@ def depo_slice_center(depos, method, slice_start, slice_end, v_drift, t_offset, 
     return np.array([mean_us, x, y, z])
 
 
-# ==== Depo/blob matching (--mode one) ====
-def depo_reco_time_ns(depos, t_offset):
-    """Each depo's expected (untruncated) center time on the reco/blob clock (ns): the
-    physical-drift-clock `depos['t']` shifted by `t_offset` (us), the same convention
-    depo_center/depo_slice_center use. One value per depo, indexed like `depos['t']`.
+# ==== Depo/blob classification (ghost / out-of-range) ====
+def classify_blob(b, depos, depo_idx, v_drift, t_offset, response_plane_x,
+                   val_thr, ghost_nsigma_trans, depo_range_nsigma):
+    """Classifies one reco blob relative to one depo as "matched", "ghost", or
+    "out_of_range", per docs/evaluation/position_center_center_comparison_report.md's
+    "Depo & Blob 구분" section.
+
+    - "out_of_range": the blob's slice window [start, start+span] doesn't overlap the
+      depo's own valid time boundary (mean +/- depo_range_nsigma * sigma_t on the reco
+      clock) -- comparing it against this depo's slice-restricted center wouldn't be
+      apples-to-apples (depo_slice_center's truncated mean degenerates to the interval
+      midpoint there).
+    - "ghost": within range, but the blob's charge is below val_thr and/or its (y, z)
+      center is farther than ghost_nsigma_trans * depos["T"][depo_idx] from the depo's
+      own (y, z) center -- likely noise/mismatch rather than this depo's reconstruction.
+    - "matched": neither of the above; safe to compare via depo_slice_center.
+
+    Returns:
+        tuple[str, str]: (category, reason). reason is "no_time_overlap" for
+            out_of_range, "" for matched, and one of "low_charge"/"far_distance"/
+            "low_charge+far_distance" for ghost.
     """
-    return np.asarray(depos["t"], dtype=float) + t_offset * 1000.0
+    mean_ns = depos["t"][depo_idx] + t_offset * 1000.0
+    sigma_ns = (depos["L"][depo_idx] / v_drift) * 1000.0
+    lo_ns = mean_ns - depo_range_nsigma * sigma_ns
+    hi_ns = mean_ns + depo_range_nsigma * sigma_ns
+
+    b_start, b_end = b["start"], b["start"] + b["span"]
+    if b_end < lo_ns or b_start > hi_ns:
+        return "out_of_range", "no_time_overlap"
+
+    bc = blob_center(b, v_drift, response_plane_x)
+    dc = depo_center(depos, depo_idx, v_drift, t_offset, response_plane_x)
+    distance_trans = np.hypot(bc[2] - dc[2], bc[3] - dc[3])
+    dist_thr = ghost_nsigma_trans * depos["T"][depo_idx]
+
+    reasons = []
+    if b["val"] < val_thr:
+        reasons.append("low_charge")
+    if distance_trans > dist_thr:
+        reasons.append("far_distance")
+    if reasons:
+        return "ghost", "+".join(reasons)
+    return "matched", ""
 
 
+# ==== Depo/blob matching (--mode one) ====
 def match_blobs_to_depos(depos, blobs, t_offset):
-    """Assigns each blob to the depo whose expected reco-clock time (depo_reco_time_ns) is
+    """Assigns each blob to the depo whose expected reco-clock time is
     nearest to the blob's own slice-window center (start + span/2). This is what recovers
     the depo/blob correspondence that --mode per_file gets for free (one depo per file).
 
     Returns dict depo_index -> list of blob node dicts assigned to it (only depos with
     >=1 matched blob are present as keys).
     """
-    depo_times_ns = depo_reco_time_ns(depos, t_offset)
+    depo_times_ns = np.asarray(depos["t"], dtype=float) + t_offset * 1000.0 # Depo 이동해 blob과 일치
+
     depo_blobs = {}
     for b in blobs:
         center_ns = b["start"] + b["span"] / 2.0
@@ -283,6 +332,17 @@ def match_blobs_to_depos(depos, blobs, t_offset):
 
 
 # ==== Position/depo group collection ====
+def _print_gen1_range(label, x, y, z):
+    """Logs the Gen1 (pre-drift, true generation position -- independent of the
+    Gen0-derived x used everywhere else in this script) count and per-axis
+    range for whatever depos are currently being loaded, as a sanity check
+    before the actual depo/blob comparison runs."""
+    print(f"[INFO] {label}: {len(x)} depo(s) generated (Gen1) at "
+          f"x=[{min(x):.2f},{max(x):.2f}]mm "
+          f"y=[{min(y):.2f},{max(y):.2f}]mm "
+          f"z=[{min(z):.2f},{max(z):.2f}]mm")
+
+
 def collect_groups_per_file(base_dir, anode_index, depo_prefix, depo_surfix, cluster_prefix, cluster_surfix):
     """--mode per_file: one group per position subdirectory, each holding a single depo
     (depo_idx=0) and every reco blob found in that subdirectory's file pair.
@@ -294,6 +354,7 @@ def collect_groups_per_file(base_dir, anode_index, depo_prefix, depo_surfix, clu
     print(f"[INFO] Found {len(positions)} position directories")
 
     groups = []
+    gen1_x, gen1_y, gen1_z = [], [], []
     for name, depo_file, reco_file in positions:
         depos = load_generation_data(depo_file, 0)
         if depos is None or len(depos["t"]) == 0:
@@ -310,7 +371,16 @@ def collect_groups_per_file(base_dir, anode_index, depo_prefix, depo_surfix, clu
             print(f"[WARNING] {name}: no reco blobs, skipping")
             continue
 
+        depos1 = load_generation_data(depo_file, 1)
+        if depos1 is not None and len(depos1["t"]) > 0:
+            gen1_x.extend(depos1["x"])
+            gen1_y.extend(depos1["y"])
+            gen1_z.extend(depos1["z"])
+
         groups.append((name, depos, blobs, 0))
+
+    if gen1_x:
+        _print_gen1_range(f"{len(groups)} position files", gen1_x, gen1_y, gen1_z)
     return groups
 
 
@@ -326,6 +396,10 @@ def collect_groups_one(depo_file, reco_file, t_offset, v_drift, response_plane_x
     if depos is None or len(depos["t"]) == 0:
         print(f"[ERROR] {depo_file}: no Gen0 depo data")
         return []
+
+    depos1 = load_generation_data(depo_file, 1)
+    if depos1 is not None and len(depos1["t"]) > 0:
+        _print_gen1_range(os.path.basename(depo_file), depos1["x"], depos1["y"], depos1["z"])
 
     cgraph = load_cluster_data(reco_file)
     if cgraph is None:
@@ -356,41 +430,65 @@ def collect_groups_one(depo_file, reco_file, t_offset, v_drift, response_plane_x
 
 
 # ==== Data collection ====
-def collect_records(groups, v_drift, t_offset, response_plane_x, mean_method):
+def collect_records(groups, v_drift, t_offset, response_plane_x, mean_method,
+                     val_thr, ghost_nsigma_trans, depo_range_nsigma):
     """Builds one record per (group, blob), plus a per-group data cache for later plots.
 
-    Every reco blob in a group is compared individually against the depo center
-    restricted to that blob's own slice window (see depo_slice_center), not a
-    single group-wide depo center -- see docs/position_eval_center_comparison_Plan.md
-    2026-07-13 update for why per-blob comparison is needed, and the per-slice fix
-    in this plan.
+    Every blob is first classified via classify_blob(); only "matched" blobs are
+    compared individually against the depo center restricted to that blob's own
+    slice window (see depo_slice_center), not a single group-wide depo center --
+    see docs/position_eval_center_comparison_Plan.md 2026-07-13 update for why
+    per-blob comparison is needed, and the per-slice fix in this plan. "ghost" and
+    "out_of_range" blobs are excluded from the comparison and returned separately
+    (see docs/evaluation/position_center_center_comparison_report.md's
+    "Depo & Blob 구분" section) so they don't bias the diff statistics.
 
     Args:
         groups: list of (label, depos, blobs, depo_idx), as produced by
             collect_groups_per_file or collect_groups_one.
 
     Returns:
-        tuple[list[dict], dict[str, tuple]]: (records, data_cache) where
-            data_cache[label] = (depos, blobs, depo_idx) for outlier re-plotting.
+        tuple[list[dict], dict[str, list[dict]], dict[str, tuple]]:
+            (records, excluded, data_cache) where excluded = {"ghost": [...],
+            "out_of_range": [...]}, and data_cache[label] = (depos, blobs, depo_idx)
+            for outlier re-plotting.
     """
     records = []
+    excluded = {"ghost": [], "out_of_range": []}
     data_cache = {}
 
     for label, depos, blobs, depo_idx in groups:
         for i, b in enumerate(blobs):
+            category, reason = classify_blob(
+                b, depos, depo_idx, v_drift, t_offset, response_plane_x,
+                val_thr, ghost_nsigma_trans, depo_range_nsigma,
+            )
             bc = blob_center(b, v_drift, response_plane_x)
-            dc = depo_slice_center(depos, mean_method, b["start"], b["start"] + b["span"], v_drift, t_offset, response_plane_x, depo_idx)
-            diff = bc - dc
-            records.append({
-                "position": label, "blob_index": i, "val": b["val"],
-                "depo_t": dc[0], "depo_x": dc[1], "depo_y": dc[2], "depo_z": dc[3],
-                "blob_t": bc[0], "blob_x": bc[1], "blob_y": bc[2], "blob_z": bc[3],
-                "dt": diff[0], "dx": diff[1], "dy": diff[2], "dz": diff[3],
-            })
+            if category == "matched":
+                dc = depo_slice_center(depos, mean_method, b["start"], b["start"] + b["span"], v_drift, t_offset, response_plane_x, depo_idx)
+                diff = bc - dc
+                records.append({
+                    "position": label, "blob_index": i, "val": b["val"],
+                    "depo_t": dc[0], "depo_x": dc[1], "depo_y": dc[2], "depo_z": dc[3],
+                    "blob_t": bc[0], "blob_x": bc[1], "blob_y": bc[2], "blob_z": bc[3],
+                    "dt": diff[0], "dx": diff[1], "dy": diff[2], "dz": diff[3],
+                })
+            else:
+                dc = depo_center(depos, depo_idx, v_drift, t_offset, response_plane_x)
+                excluded[category].append({
+                    "position": label, "blob_index": i, "val": b["val"], "reason": reason,
+                    "depo_t": dc[0], "depo_x": dc[1], "depo_y": dc[2], "depo_z": dc[3],
+                    "blob_t": bc[0], "blob_x": bc[1], "blob_y": bc[2], "blob_z": bc[3],
+                })
         data_cache[label] = (depos, blobs, depo_idx)
 
-    print(f"[INFO] Collected {len(records)} (position, blob) records from {len(data_cache)} usable groups")
-    return records, data_cache
+    n_ghost, n_oor = len(excluded["ghost"]), len(excluded["out_of_range"])
+    n_low_charge = sum(1 for r in excluded["ghost"] if "low_charge" in r["reason"])
+    n_far = sum(1 for r in excluded["ghost"] if "far_distance" in r["reason"])
+    print(f"[INFO] Collected {len(records)} matched (position, blob) records from "
+          f"{len(data_cache)} usable groups ({n_ghost} ghost [low_charge={n_low_charge}, "
+          f"far_distance={n_far}], {n_oor} out_of_range excluded)")
+    return records, excluded, data_cache
 
 
 # ==== Output ====
@@ -432,17 +530,18 @@ def _axis_diff_stats(records, percentile, is_abs=True):
     return stats
 
 
-def percentile_analysis(records, is_abs, output_dir, file_name="abs_diff_distributions", percentile=PERCENTILE, val_thr=None):
+def percentile_analysis(records, is_abs, output_dir, file_name="abs_diff_distributions", percentile=PERCENTILE):
     """Builds each axis's |diff| distribution, uses it to report a resolution, and plot the distribution with median and percentile threshold marked.
+
+    `records` is expected to already be pre-filtered to "matched" blobs (see
+    collect_records/classify_blob) -- ghost/out-of-range blobs are excluded upstream,
+    not here.
 
     Returns:
         tuple[dict, list[dict]]: (stats, outliers) where
             stats[axis] = {"abs_diff": ndarray, "median": float,
                            "percentile": percentile, "percentile_value": float}
     """
-    if val_thr is not None:
-        records = [r for r in records if r["val"] >= val_thr]
-
     stats = _axis_diff_stats(records, percentile, is_abs=is_abs)
 
     axis_units = {"t": "us", "x": "mm", "y": "mm", "z": "mm"}
@@ -476,9 +575,13 @@ def percentile_analysis(records, is_abs, output_dir, file_name="abs_diff_distrib
     return stats
 
 
-def outlier_analysis(records, percentile=OUTLIER_PERCENTILE, val_thr=None):
+def outlier_analysis(records, percentile=OUTLIER_PERCENTILE):
     """Builds each axis's |diff| distribution, and uses it both to report a robust
-    center/spread and to classify outliers 
+    center/spread and to classify outliers.
+
+    `records` is expected to already be pre-filtered to "matched" blobs (see
+    collect_records/classify_blob) -- low-charge blobs are excluded upstream as
+    "ghost", not flagged here.
 
     Returns:
         tuple[dict, list[dict]]: (stats, outliers) where
@@ -493,8 +596,6 @@ def outlier_analysis(records, percentile=OUTLIER_PERCENTILE, val_thr=None):
             abs(r[f"d{axis}"]) > stats[axis]["percentile_value"]
             for axis in ("t", "x", "y", "z")
         )
-        if val_thr is not None and r["val"] < val_thr:
-            flagged = True
         if flagged:
             outliers.append(r)
     return stats, outliers
@@ -560,13 +661,6 @@ def _plot_slice_blob_outlines_tran_ax(ax, blobs, sliceid, target_blob_idx, show_
     return all_pts
 
 
-def _boxes_overlap(box1, box2):
-    """Checks whether two (z_lo, z_hi, y_lo, y_hi) boxes overlap."""
-    z_lo1, z_hi1, y_lo1, y_hi1 = box1
-    z_lo2, z_hi2, y_lo2, y_hi2 = box2
-    return not (z_hi1 < z_lo2 or z_hi2 < z_lo1 or y_hi1 < y_lo2 or y_hi2 < y_lo1)
-
-
 def _draw_break_marks(ax_left, ax_right):
     """Draws the standard diagonal '//' break-mark ticks between two adjacent
     axes, signaling that the (Z, Y) region jumps discontinuously between them."""
@@ -605,10 +699,20 @@ def _draw_transverse_layers(ax, depos, blobs, b, blob_idx, bc, depo_charge_in_sl
     ax.set_facecolor("black")
 
 
-def _plot_depo_gaussian_x_ax(ax, depos, v_drift, t_offset, response_plane_x, depo_idx=0, n_sigma=5):
+def _plot_depo_gaussian_x_ax(ax, depos, v_drift, t_offset, response_plane_x, depo_idx=0, n_sigma=DEPO_RANGE_NSIGMA):
     """Plots the depo's longitudinal Gaussian charge density against x-position
     (mm) instead of drift time -- same curve as plot_depo_gaussian_long_ax,
-    just with every time sample run through convert_time2x first."""
+    just with every time sample run through convert_time2x first.
+
+    The curve is drawn only out to `n_sigma` (default DEPO_RANGE_NSIGMA, i.e.
+    the same cutoff classify_blob() uses for its out_of_range boundary) --
+    not further, even though the Gaussian's true tails extend past that with
+    small but nonzero density. Drawing the full tails made out_of_range
+    overlay plots visually confusing: the curve appeared to reach into the
+    "Current slice" span even when classify_blob() had already determined
+    there's no overlap with the n-sigma boundary box (see docs/evaluation/
+    position_center_center_comparison_report.md's "Depo & Blob 구분" section).
+    """
     total_q = abs(depos["q"][depo_idx])
     sigma_us = depos["L"][depo_idx] / v_drift
     mean_us = (depos["t"][depo_idx] / 1000.0) + t_offset
@@ -623,158 +727,195 @@ def _plot_depo_gaussian_x_ax(ax, depos, v_drift, t_offset, response_plane_x, dep
     ax.set_ylabel(r"Charge Density [$e/\mu$s]")
 
 
-def plot_outliers(data_cache, outliers, output_dir, n_outlier_plots=N_OUTLIER_PLOTS, v_drift=V_DRIFT, t_offset=T_OFFSET, response_plane_x=RESPONSE_PLANE_X, outlier_name="outliers"):
-    """Saves a (transverse corner scatter) + (longitudinal Gaussian/slice window) overlay
-    for the top `n_outlier_plots` outliers, sorted by descending 3D squared residual."""
-    outliers_sorted = sorted(outliers, key=lambda r: r["dx"] ** 2 + r["dy"] ** 2 + r["dz"] ** 2, reverse=True
+def _sort_by_distance(records):
+    """Sorts records (outlier/ghost/out_of_range dicts, all sharing blob_x/y/z and
+    depo_x/y/z fields from collect_records) by descending 3D squared blob-depo distance,
+    so the "worst"/farthest case in each category gets plotted first."""
+    return sorted(
+        records,
+        key=lambda r: (r["blob_x"] - r["depo_x"]) ** 2 + (r["blob_y"] - r["depo_y"]) ** 2 + (r["blob_z"] - r["depo_z"]) ** 2,
+        reverse=True,
     )
-    outlier_dir = os.path.join(output_dir, outlier_name)
 
-    for r in outliers_sorted[:n_outlier_plots]:
-        depos, blobs, depo_idx = data_cache[r["position"]]
 
-        blob_idx = r["blob_index"]
-        b = blobs[blob_idx]
-        bc = blob_center(b, v_drift, response_plane_x)
+def _plot_case_overlay(r, data_cache, save_dir, v_drift, t_offset, response_plane_x, broken, case_label, depo_range_nsigma=DEPO_RANGE_NSIGMA):
+    """Saves a (transverse corner scatter) + (longitudinal Gaussian/slice window) overlay
+    for one blob record `r` (an "outlier"/"ghost"/"out_of_range" record from collect_records
+    /outlier_analysis, all sharing position/blob_index/depo_*/blob_* fields). Shared by
+    plot_outliers/plot_ghost_blobs/plot_out_of_range_blobs.
 
-        dc = depo_center(depos, depo_idx, v_drift, t_offset, response_plane_x)
+    `broken` fixes whether the transverse panel is drawn as two zoomed mini-panels (near
+    the depo, near the blob) with a broken-axis break mark between them, or as one combined
+    panel -- each caller decides this from what it already knows about its own category
+    (statistical outliers among matched blobs stay within classify_blob's ghost distance
+    threshold, so plot_outliers always uses a single panel; ghost/out_of_range blobs are by
+    definition far from or unrelated to the depo, so plot_ghost_blobs/plot_out_of_range_blobs
+    always use the two-panel split), rather than an automatic per-blob decision.
+    """
+    depos, blobs, depo_idx = data_cache[r["position"]]
 
-        mean_ns = depos["t"][depo_idx] + t_offset * 1000.0
-        sigma_ns = (depos["L"][depo_idx] / v_drift) * 1000.0
-        depo_charge_in_slice = abs(depos["q"][depo_idx]) * gbounds(b["start"], b["start"] + b["span"], mean_ns, sigma_ns)
+    blob_idx = r["blob_index"]
+    b = blobs[blob_idx]
+    bc = blob_center(b, v_drift, response_plane_x)
+    dc = depo_center(depos, depo_idx, v_drift, t_offset, response_plane_x)
+    diff = bc - dc
 
-        print(f"[OUTLIER] Plotting position={r['position']} blob_index={blob_idx} "
-              f"val={r['val']:.1f} dt={r['dt']:.3f}us dx={r['dx']:.3f}mm dy={r['dy']:.3f}mm dz={r['dz']:.3f}mm")
+    mean_ns = depos["t"][depo_idx] + t_offset * 1000.0
+    sigma_ns = (depos["L"][depo_idx] / v_drift) * 1000.0
+    depo_charge_in_slice = abs(depos["q"][depo_idx]) * gbounds(b["start"], b["start"] + b["span"], mean_ns, sigma_ns)
 
-        # Transverse (Z, Y) panel: normally one axes zoomed to the union of
-        # the depo's n_sigma window and every blob's outline in this slice.
-        # But when the outlier blob sits far enough away that the two don't
-        # even overlap, that union turns into a long, squished sliver where
-        # neither region is readable. In that case split into two zoomed
-        # mini-panels (near the depo, near the blob) with a broken-axis
-        # break mark between them instead of one degenerate combined view.
-        n_sigma = 10
-        t_sigma = depos["T"][depo_idx]
-        depo_box = (
-            depos["z"][depo_idx] - n_sigma * t_sigma, depos["z"][depo_idx] + n_sigma * t_sigma,
-            depos["y"][depo_idx] - n_sigma * t_sigma, depos["y"][depo_idx] + n_sigma * t_sigma,
-        )
-        slice_blob_pts = [pts for _, _, pts in _slice_blob_points(blobs, b.get("sliceid"))]
-        # The broken-axis decision (and the "near blob" zoom box) is based on
-        # the target outlier blob's own corners only, not every blob sharing
-        # its slice -- another blob in the same slice can happen to sit right
-        # next to the depo, which would otherwise make the combined box span
-        # (and "overlap") both regions even though the outlier itself is far away.
-        target_corners = np.array(b.get("corners", []))
-        if target_corners.size >= 6:
-            target_pts = target_corners[:, [2, 1]]
-            blob_box = (target_pts[:, 0].min() - 2, target_pts[:, 0].max() + 2,
-                        target_pts[:, 1].min() - 2, target_pts[:, 1].max() + 2)
-        else:
-            blob_box = depo_box
-        broken = not _boxes_overlap(depo_box, blob_box)
+    reason_str = f" reason={r['reason']}" if r.get("reason") else ""
+    print(f"[{case_label.upper()}] Plotting position={r['position']} blob_index={blob_idx} "
+          f"val={r['val']:.1f} dt={diff[0]:.3f}us dx={diff[1]:.3f}mm dy={diff[2]:.3f}mm dz={diff[3]:.3f}mm{reason_str}")
 
-        fig = plt.figure(figsize=(15, 5) if broken else (13, 5))
-        outer_gs = fig.add_gridspec(1, 2, width_ratios=[1, 1])
+    n_sigma = 10
+    t_sigma = depos["T"][depo_idx]
+    depo_box = (
+        depos["z"][depo_idx] - n_sigma * t_sigma, depos["z"][depo_idx] + n_sigma * t_sigma,
+        depos["y"][depo_idx] - n_sigma * t_sigma, depos["y"][depo_idx] + n_sigma * t_sigma,
+    )
+    slice_blob_pts = [pts for _, _, pts in _slice_blob_points(blobs, b.get("sliceid"))]
+    # The "near blob" zoom box is based on the target blob's own corners only, not
+    # every blob sharing its slice -- another blob in the same slice can happen to
+    # sit right next to the depo, which would otherwise pull the combined box toward
+    # it even though the target blob itself is far away.
+    target_corners = np.array(b.get("corners", []))
+    if target_corners.size >= 6:
+        target_pts = target_corners[:, [2, 1]]
+        blob_box = (target_pts[:, 0].min() - 2, target_pts[:, 0].max() + 2,
+                    target_pts[:, 1].min() - 2, target_pts[:, 1].max() + 2)
+    else:
+        blob_box = depo_box
 
-        if broken:
-            inner_gs = outer_gs[0].subgridspec(1, 2, wspace=0.08)
-            ax_t_near = fig.add_subplot(inner_gs[0])
-            ax_t_far = fig.add_subplot(inner_gs[1])
+    fig = plt.figure(figsize=(15, 5) if broken else (13, 5))
+    outer_gs = fig.add_gridspec(1, 2, width_ratios=[1, 1])
 
-            _draw_transverse_layers(ax_t_near, depos, blobs, b, blob_idx, bc, depo_charge_in_slice,
-                                     draw_depo=True, draw_blob=True, show_labels=True, depo_idx=depo_idx)
-            # plot_depo_gaussian_tran_ax (called above via show_labels=True)
-            # draws its own small in-axes legend; drop it since its handles
-            # are folded into the combined fig-level legend built below.
-            near_legend = ax_t_near.get_legend()
-            if near_legend is not None:
-                near_legend.remove()
-            ax_t_near.set_xlim(depo_box[0], depo_box[1])
-            ax_t_near.set_ylim(depo_box[2], depo_box[3])
-            ax_t_near.set_aspect("equal", adjustable="box")
-            ax_t_near.set_xlabel("Z [mm]")
-            ax_t_near.set_ylabel("Y [mm]")
-            ax_t_near.set_title(f"near depo (dy={r['dy']:.2f}mm  dz={r['dz']:.2f}mm)")
+    if broken:
+        inner_gs = outer_gs[0].subgridspec(1, 2, wspace=0.08)
+        ax_t_near = fig.add_subplot(inner_gs[0])
+        ax_t_far = fig.add_subplot(inner_gs[1])
 
-            _draw_transverse_layers(ax_t_far, depos, blobs, b, blob_idx, bc, depo_charge_in_slice,
-                                     draw_depo=False, draw_blob=True, show_labels=True)
-            ax_t_far.set_xlim(blob_box[0], blob_box[1])
-            ax_t_far.set_ylim(blob_box[2], blob_box[3])
-            ax_t_far.set_aspect("equal", adjustable="box")
-            ax_t_far.set_xlabel("Z [mm]")
-            ax_t_far.set_title("near blob")
-            _draw_break_marks(ax_t_near, ax_t_far)
+        _draw_transverse_layers(ax_t_near, depos, blobs, b, blob_idx, bc, depo_charge_in_slice,
+                                 draw_depo=True, draw_blob=True, show_labels=True, depo_idx=depo_idx)
+        # plot_depo_gaussian_tran_ax (called above via show_labels=True)
+        # draws its own small in-axes legend; drop it since its handles
+        # are folded into the combined fig-level legend built below.
+        near_legend = ax_t_near.get_legend()
+        if near_legend is not None:
+            near_legend.remove()
+        ax_t_near.set_xlim(depo_box[0], depo_box[1])
+        ax_t_near.set_ylim(depo_box[2], depo_box[3])
+        ax_t_near.set_aspect("equal", adjustable="box")
+        ax_t_near.set_xlabel("Z [mm]")
+        ax_t_near.set_ylabel("Y [mm]")
+        ax_t_near.set_title(f"near depo (dy={diff[2]:.2f}mm  dz={diff[3]:.2f}mm)")
 
-            # Placed outside the axes (below) so it never covers the plotted
-            # blobs/heatmap; save_and_show() saves with bbox_inches='tight',
-            # so the saved image simply grows to fit it instead of clipping.
-            # Both panels draw every blob in the slice (so each shows whichever
-            # of them actually fall in its own zoom window), which duplicates
-            # labels like "blob N center" across the two -- de-duplicate by
-            # label, keeping first occurrence, before building the legend.
-            handles_all = ax_t_near.get_legend_handles_labels()[0] + ax_t_far.get_legend_handles_labels()[0]
-            labels_all = ax_t_near.get_legend_handles_labels()[1] + ax_t_far.get_legend_handles_labels()[1]
-            seen = set()
-            handles, labels = [], []
-            for h, l in zip(handles_all, labels_all):
-                if l not in seen:
-                    seen.add(l)
-                    handles.append(h)
-                    labels.append(l)
-            fig.legend(handles, labels, fontsize="small", loc="upper center",
-                       bbox_to_anchor=(0.25, -0.02), ncol=2)
-        else:
-            ax_t = fig.add_subplot(outer_gs[0])
-            _draw_transverse_layers(ax_t, depos, blobs, b, blob_idx, bc, depo_charge_in_slice,
-                                     draw_depo=True, draw_blob=True, show_labels=True, depo_idx=depo_idx)
-            z_lo, z_hi, y_lo, y_hi = depo_box
-            if slice_blob_pts:
-                pts = np.vstack(slice_blob_pts)
-                z_lo, z_hi = min(z_lo, pts[:, 0].min() - 2), max(z_hi, pts[:, 0].max() + 2)
-                y_lo, y_hi = min(y_lo, pts[:, 1].min() - 2), max(y_hi, pts[:, 1].max() + 2)
-            ax_t.set_xlim(z_lo, z_hi)
-            ax_t.set_ylim(y_lo, y_hi)
-            ax_t.set_aspect("equal", adjustable="box")
-            ax_t.set_xlabel("Z [mm]")
-            ax_t.set_ylabel("Y [mm]")
-            ax_t.set_title(f"dy={r['dy']:.2f}mm  dz={r['dz']:.2f}mm")
-            ax_t.legend(fontsize="small", loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
+        _draw_transverse_layers(ax_t_far, depos, blobs, b, blob_idx, bc, depo_charge_in_slice,
+                                 draw_depo=False, draw_blob=True, show_labels=True)
+        ax_t_far.set_xlim(blob_box[0], blob_box[1])
+        ax_t_far.set_ylim(blob_box[2], blob_box[3])
+        ax_t_far.set_aspect("equal", adjustable="box")
+        ax_t_far.set_xlabel("Z [mm]")
+        ax_t_far.set_title("near blob")
+        _draw_break_marks(ax_t_near, ax_t_far)
 
-        # Longitudinal (x) panel: x-position instead of drift time, and only
-        # the target blob's own slice window is shown (no gray spans for
-        # other slices -- unlike the transverse panel, every other slice is
-        # simply a different x-window on the same depo, not useful context).
-        ax_l = fig.add_subplot(outer_gs[1])
-        _plot_depo_gaussian_x_ax(ax_l, depos, v_drift, t_offset, response_plane_x, depo_idx=depo_idx, n_sigma=5)
+        # Placed outside the axes (below) so it never covers the plotted
+        # blobs/heatmap; save_and_show() saves with bbox_inches='tight',
+        # so the saved image simply grows to fit it instead of clipping.
+        # Both panels draw every blob in the slice (so each shows whichever
+        # of them actually fall in its own zoom window), which duplicates
+        # labels like "blob N center" across the two -- de-duplicate by
+        # label, keeping first occurrence, before building the legend.
+        handles_all = ax_t_near.get_legend_handles_labels()[0] + ax_t_far.get_legend_handles_labels()[0]
+        labels_all = ax_t_near.get_legend_handles_labels()[1] + ax_t_far.get_legend_handles_labels()[1]
+        seen = set()
+        handles, labels = [], []
+        for h, l in zip(handles_all, labels_all):
+            if l not in seen:
+                seen.add(l)
+                handles.append(h)
+                labels.append(l)
+        fig.legend(handles, labels, fontsize="small", loc="upper center",
+                   bbox_to_anchor=(0.25, -0.02), ncol=2)
+    else:
+        ax_t = fig.add_subplot(outer_gs[0])
+        _draw_transverse_layers(ax_t, depos, blobs, b, blob_idx, bc, depo_charge_in_slice,
+                                 draw_depo=True, draw_blob=True, show_labels=True, depo_idx=depo_idx)
+        z_lo, z_hi, y_lo, y_hi = depo_box
+        if slice_blob_pts:
+            pts = np.vstack(slice_blob_pts)
+            z_lo, z_hi = min(z_lo, pts[:, 0].min() - 2), max(z_hi, pts[:, 0].max() + 2)
+            y_lo, y_hi = min(y_lo, pts[:, 1].min() - 2), max(y_hi, pts[:, 1].max() + 2)
+        ax_t.set_xlim(z_lo, z_hi)
+        ax_t.set_ylim(y_lo, y_hi)
+        ax_t.set_aspect("equal", adjustable="box")
+        ax_t.set_xlabel("Z [mm]")
+        ax_t.set_ylabel("Y [mm]")
+        ax_t.set_title(f"dy={diff[2]:.2f}mm  dz={diff[3]:.2f}mm")
+        ax_t.legend(fontsize="small", loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
 
-        x0 = convert_time2x(b["start"] / 1000.0, v_drift, response_plane_x)
-        x1 = convert_time2x((b["start"] + b["span"]) / 1000.0, v_drift, response_plane_x)
-        ax_l.axvspan(min(x0, x1), max(x0, x1), color="tab:red", alpha=0.3, label="Current slice")
+    # Longitudinal (x) panel: x-position instead of drift time, and only
+    # the target blob's own slice window is shown (no gray spans for
+    # other slices -- unlike the transverse panel, every other slice is
+    # simply a different x-window on the same depo, not useful context).
+    ax_l = fig.add_subplot(outer_gs[1])
+    _plot_depo_gaussian_x_ax(ax_l, depos, v_drift, t_offset, response_plane_x, depo_idx=depo_idx, n_sigma=depo_range_nsigma)
 
-        x_peak = convert_time2x((depos["t"][depo_idx] / 1000.0) + t_offset, v_drift, response_plane_x)
-        ax_l.axvline(x_peak, color="red", linestyle=":", lw=1.5, label=f"Peak: {x_peak:.2f}mm", zorder=5)
+    x0 = convert_time2x(b["start"] / 1000.0, v_drift, response_plane_x)
+    x1 = convert_time2x((b["start"] + b["span"]) / 1000.0, v_drift, response_plane_x)
+    ax_l.axvspan(min(x0, x1), max(x0, x1), color="tab:red", alpha=0.3, label="Current slice")
 
-        t_slice_centroid_us = truncated_gaussian_mean(b["start"], b["start"] + b["span"], mean_ns, sigma_ns) / 1000.0
-        x_slice_centroid = convert_time2x(t_slice_centroid_us, v_drift, response_plane_x)
-        ax_l.axvline(x_slice_centroid, color="tab:red", linestyle="-.", lw=1.5,
-                    label=f"Slice centroid: {x_slice_centroid:.2f}mm", zorder=6)
+    x_peak = convert_time2x((depos["t"][depo_idx] / 1000.0) + t_offset, v_drift, response_plane_x)
+    ax_l.axvline(x_peak, color="red", linestyle=":", lw=1.5, label=f"Peak: {x_peak:.2f}mm", zorder=5)
 
-        # bc[1] is the blob's own x (from the slice's time midpoint, see
-        # blob_center()) -- the blob's reconstructed center, not the depo's.
-        ax_l.axvline(bc[1], color="lime", linestyle="--", lw=1.5, label=f"Blob center: {bc[1]:.2f}mm", zorder=6)
+    t_slice_centroid_us = truncated_gaussian_mean(b["start"], b["start"] + b["span"], mean_ns, sigma_ns) / 1000.0
+    x_slice_centroid = convert_time2x(t_slice_centroid_us, v_drift, response_plane_x)
+    ax_l.axvline(x_slice_centroid, color="tab:red", linestyle="-.", lw=1.5,
+                label=f"Slice centroid: {x_slice_centroid:.2f}mm", zorder=6)
 
-        ax_l.legend(fontsize="small")
-        ax_l.set_title(f"dx={r['dx']:.2f}mm")
+    # bc[1] is the blob's own x (from the slice's time midpoint, see
+    # blob_center()) -- the blob's reconstructed center, not the depo's.
+    ax_l.axvline(bc[1], color="lime", linestyle="--", lw=1.5, label=f"Blob center: {bc[1]:.2f}mm", zorder=6)
 
-        fig.suptitle(
-            f"Outlier case(blob_index={blob_idx}) at position {r['position']})\n"
-            f"depo center (x,y,z)=({dc[1]:.2f}, {dc[2]:.2f}, {dc[3]:.2f})mm   "
-            f"blob center (x,y,z)=({bc[1]:.2f}, {bc[2]:.2f}, {bc[3]:.2f})mm\n"
-            f"depo charge in slice={depo_charge_in_slice:.4f} [e-]   blob charge (val)={b['val']:.4f} [e-]"
-        )
-        fig.tight_layout()
-        save_and_show(fig, outlier_dir, f"{r['position']}_blob{blob_idx}_overlay", show=False)
+    ax_l.legend(fontsize="small")
+    ax_l.set_title(f"dx={diff[1]:.2f}mm")
+
+    fig.suptitle(
+        f"{case_label} case(blob_index={blob_idx}) at position {r['position']})\n"
+        f"depo center (x,y,z)=({dc[1]:.2f}, {dc[2]:.2f}, {dc[3]:.2f})mm   "
+        f"blob center (x,y,z)=({bc[1]:.2f}, {bc[2]:.2f}, {bc[3]:.2f})mm\n"
+        f"depo charge in slice={depo_charge_in_slice:.4f} [e-]   blob charge (val)={b['val']:.4f} [e-]"
+    )
+    fig.tight_layout()
+    save_and_show(fig, save_dir, f"{r['position']}_blob{blob_idx}_overlay", show=False)
+
+
+def plot_outliers(data_cache, outliers, output_dir, n_outlier_plots=N_OUTLIER_PLOTS, v_drift=V_DRIFT, t_offset=T_OFFSET, response_plane_x=RESPONSE_PLANE_X, outlier_name="outliers", depo_range_nsigma=DEPO_RANGE_NSIGMA):
+    """Plots the top `n_outlier_plots` statistical outliers (matched blobs flagged by
+    outlier_analysis), always as a single combined transverse panel: matched blobs are
+    already within classify_blob's ghost distance threshold, so the near/far split that
+    _plot_case_overlay offers is never needed here."""
+    save_dir = os.path.join(output_dir, outlier_name)
+    for r in _sort_by_distance(outliers)[:n_outlier_plots]:
+        _plot_case_overlay(r, data_cache, save_dir, v_drift, t_offset, response_plane_x, broken=False, case_label="Outlier", depo_range_nsigma=depo_range_nsigma)
+
+
+def plot_ghost_blobs(data_cache, ghosts, output_dir, n_ghost_plots=N_OUTLIER_PLOTS, v_drift=V_DRIFT, t_offset=T_OFFSET, response_plane_x=RESPONSE_PLANE_X, ghost_name="ghost_blobs", depo_range_nsigma=DEPO_RANGE_NSIGMA):
+    """Plots the top `n_ghost_plots` ghost blobs (classify_blob's "ghost" category), always
+    with the near-depo/near-blob split: ghosts are by definition low-charge and/or beyond
+    the transverse distance threshold from the depo, so the two regions rarely overlap."""
+    save_dir = os.path.join(output_dir, ghost_name)
+    for r in _sort_by_distance(ghosts)[:n_ghost_plots]:
+        _plot_case_overlay(r, data_cache, save_dir, v_drift, t_offset, response_plane_x, broken=True, case_label="Ghost", depo_range_nsigma=depo_range_nsigma)
+
+
+def plot_out_of_range_blobs(data_cache, out_of_range, output_dir, n_out_of_range_plots=N_OUTLIER_PLOTS, v_drift=V_DRIFT, t_offset=T_OFFSET, response_plane_x=RESPONSE_PLANE_X, out_of_range_name="out_of_range_blobs", depo_range_nsigma=DEPO_RANGE_NSIGMA):
+    """Plots the top `n_out_of_range_plots` out-of-range blobs (classify_blob's
+    "out_of_range" category -- outside the depo's valid time boundary), with the same
+    near-depo/near-blob split as plot_ghost_blobs."""
+    save_dir = os.path.join(output_dir, out_of_range_name)
+    for r in _sort_by_distance(out_of_range)[:n_out_of_range_plots]:
+        _plot_case_overlay(r, data_cache, save_dir, v_drift, t_offset, response_plane_x, broken=True, case_label="Out-of-range", depo_range_nsigma=depo_range_nsigma)
 
 
 if __name__ == "__main__":
@@ -792,21 +933,36 @@ if __name__ == "__main__":
             args.t_offset, args.v_drift, args.anode1_x_pos,
         )
 
-    records, data_cache = collect_records(
+    records, excluded, data_cache = collect_records(
         groups, args.v_drift, args.t_offset, args.anode1_x_pos, args.mean_method,
+        args.val_thr, args.ghost_nsigma_trans, args.depo_range_nsigma,
     )
     if not records:
         print("[ERROR] No records collected; aborting.")
     else:
         save_csv(records, os.path.join(args.output_dir, f"center_diff_data_{args.tag}.csv"))
+    save_csv(excluded["ghost"], os.path.join(args.output_dir, f"ghost_blobs_{args.tag}.csv"))
+    save_csv(excluded["out_of_range"], os.path.join(args.output_dir, f"out_of_range_blobs_{args.tag}.csv"))
 
-    percentile_analysis(records, True, args.output_dir, file_name=f"abs_diff_distributions_{args.tag}", percentile=args.percentile, val_thr=args.val_thr)
+    percentile_analysis(records, True, args.output_dir, file_name=f"abs_diff_distributions_{args.tag}", percentile=args.percentile)
 
-    outlier_stats, outliers = outlier_analysis(records, percentile=args.outlier_percentile, val_thr=args.val_thr)
+    outlier_stats, outliers = outlier_analysis(records, percentile=args.outlier_percentile)
     save_csv(outliers, os.path.join(args.output_dir, f"outliers_{args.tag}.csv"))
     plot_outliers(
         data_cache, outliers, args.output_dir,
         n_outlier_plots=args.n_outlier_plots,
         v_drift=args.v_drift, t_offset=args.t_offset, response_plane_x=args.anode1_x_pos,
-        outlier_name=f"outliers_{args.tag}",
+        outlier_name=f"outliers_{args.tag}", depo_range_nsigma=args.depo_range_nsigma,
+    )
+    plot_ghost_blobs(
+        data_cache, excluded["ghost"], args.output_dir,
+        n_ghost_plots=args.n_ghost_plots,
+        v_drift=args.v_drift, t_offset=args.t_offset, response_plane_x=args.anode1_x_pos,
+        ghost_name=f"ghost_blobs_{args.tag}", depo_range_nsigma=args.depo_range_nsigma,
+    )
+    plot_out_of_range_blobs(
+        data_cache, excluded["out_of_range"], args.output_dir,
+        n_out_of_range_plots=args.n_out_of_range_plots,
+        v_drift=args.v_drift, t_offset=args.t_offset, response_plane_x=args.anode1_x_pos,
+        out_of_range_name=f"out_of_range_blobs_{args.tag}", depo_range_nsigma=args.depo_range_nsigma,
     )

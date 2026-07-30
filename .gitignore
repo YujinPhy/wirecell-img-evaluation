@@ -18,5 +18,6 @@ pdvd-wct-sim/
 *.db
 *.log
 *.pdf
+*.log
 
 __pycache__

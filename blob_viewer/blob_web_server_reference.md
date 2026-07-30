@@ -286,3 +286,114 @@ blob만 그린다. 절대 x 보정이 안 된 두 번째 예시에서도 blob의
 - **새 결과인데 예전 화면처럼 보임**: 같은 포트로 재실행했는데 브라우저 탭을 새로고침하지
   않은 경우 — 재실행 자체는 §5.1 메커니즘으로 항상 새 프로세스이므로, 브라우저만 새로고침하면
   된다.
+
+## 8. [2026-07-20] "처음에 blob/depo가 엄청 작게 보이고 확대가 안 됨" 버그와 수정
+
+### 8.1 원인
+`pyvista.Plotter.add_mesh(reset_camera=None)`의 실제 리셋 조건은
+`reset_camera = not self._first_time and not self.camera_set`다 (`pyvista/plotting/plotter.py`
+소스로 직접 확인). 즉 **plotter가 생성된 뒤 첫 번째 `add_mesh()` 호출에서는 절대 카메라를
+리셋하지 않는다** — `_first_time` 플래그가 아직 `True`이기 때문이다(원래는 `plotter.show()`가
+그 플래그를 정리해주는 걸 전제로 한 설계로 보인다). 이 스크립트는 `show()`를 호출하지 않고
+`plotter_ui()` + `server.start()`만 쓰므로, `--depo-file` 없이 blob만 그리는 경우
+`add_mesh(blob_mesh, ...)`가 유일한 호출이 되어 카메라가 pyvista의 사소한 기본값
+(`position=(0,0,1)`, `focal_point=(0,0,0)`)에 그대로 남는다 — 실제 지오메트리는 보통
+수백~수천 mm 떨어진 곳에 있으므로, 카메라가 엉뚱한 지점(원점)을 기준으로 보고 있어 blob이
+안 보이거나 점처럼 작게 보이고, 마우스 휠로 확대해도 그 엉뚱한 지점으로 다가갈 뿐이라
+체감상 "확대가 안 되는" 것처럼 느껴진다. (`--depo-file`을 같이 준 경우는 `add_mesh()`가
+두 번 호출되어 두 번째 호출에서 우연히 리셋되지만, 이 역시 신뢰할 수 없는 우연이다 — 실측으로
+직접 재현/확인함, 코드 자체에 재현 스크립트는 남기지 않음.)
+
+수정: 모든 actor를 추가한 직후 `plotter.reset_camera()`를 명시적으로 한 번 호출
+(`blob_web_server.py`, `serve_blobs()`) — `add_mesh()` 호출 횟수와 무관하게 항상 올바르게
+전체 장면에 맞춰 카메라가 잡힌다.
+
+### 8.2 줌 편의 기능 추가
+- **"Reset View" 툴바 버튼**: pyvista 자체 메뉴(화면 좌상단의 작은 "⋮" 아이콘)에도 카메라 리셋
+  버튼이 있지만 접혀 있어 찾기 어렵다. 항상 보이는 툴바 버튼을 추가해 언제든 현재 선택(아래
+  §8.3) 또는 전체 장면에 맞게 즉시 재프레이밍할 수 있게 했다.
+- **Blob 선택 시 자동 확대**: "Show only blob #" 필드로 blob을 고르면, 이제 그 blob의 경계에
+  맞춰 카메라도 함께 재조정된다(`plotter.reset_camera(bounds=...)`) — 넓은 범위에 흩어진
+  depo/blob 전체를 보다가 mm 단위의 blob 하나로 마우스 휠만으로 좁혀 들어가려면 수십~수백 번
+  스크롤해야 하는 문제를 없앴다.
+
+### 8.3 Depo slice 필터 (신규 기능)
+`scripts/position_center_comparison.py`의 `depo_slice_center()`와 같은 개념을 뷰어에도 적용:
+depo 하나는 여러 reco slice에 걸쳐 확산되므로, 특정 blob과 비교할 때는 그 blob의 slice
+구간(x 방향 두께)에 해당하는 depo 부분만 보는 게 맞다. "Depo: selected blob's slice only"
+체크박스(blob 선택 시에만 동작)를 켜면 depo 밀도 shell을 선택된 blob의 x 범위로 잘라서
+보여준다.
+
+구현상 주의점: 처음에는 `PolyData.clip_box(bounds, invert=False)`(6면 박스 클립, `invert=False`가
+박스 "안쪽"을 남긴다는 것은 실측으로 확인)로 구현했으나, 이 sphere-glyph shell 메시에 대해
+요청한 경계보다 최대 ~1.5mm 벗어난 셀이 남는 것을 발견했다(삼각형 표면 메시의 박스 클립은
+사면체 클립만큼 정확하지 않은 것으로 보임). 대신 `PolyData.clip(normal=..., origin=...)`(단일
+평면 클립, `vtkClipPolyData` 기반)을 x+ 방향/x- 방향으로 두 번 연속 적용하는 방식으로
+바꿨더니 요청 경계와의 오차가 float32 반올림 수준(~1e-4mm)으로 줄었다 — 실측 비교로 확인.
+
+## 9. [2026-07-20] 진짜 원인: depo와 blob이 애초에 겹치지 않았다
+
+§8의 카메라 리셋 수정을 적용한 뒤에도 "아무리 확대해도 blob을 식별할 수 있는 수준까지 확대가
+안 된다"는 문제가 남아 있었다. 실측으로 파고든 결과, 원인은 카메라 로직이 아니라 **depo와
+blob이 애초에 3D 공간에서 겹치지 않고 있었다**는 데 있었다 — `point_depos_Y300Z100_one`
+데이터셋으로 확인한 결과 두 mesh의 x 범위가 약 500mm(`v_drift * t_offset`
+= `1.6mm/us * 314.5us` = `503.2mm`) 어긋나 있었다. 카메라는 어긋난 두 mesh를 모두 담으려고
+훨씬 넓은 영역을 잡을 수밖에 없었고, 그 결과 blob 하나하나는 상대적으로 너무 작게 보였다 —
+"확대가 안 된다"는 사실 "확대해도 어차피 depo와 blob이 한 자리에 없다"였다.
+
+버그는 **두 군데**에 있었고 서로 반대 방향으로 오해가 겹쳐 있었다:
+
+1. **Depo 쪽 (기존 버그)**: `_depo_density_shells()`가 depo의 위치로 Gen1(pre-drift, 순수
+   시뮬레이션 발생 위치)의 `x,y,z`를 그대로 썼다. 하지만 blob은 (아래 2번의 수정 후) reco
+   clock 기준 위치이므로, depo도 같은 clock으로 옮겨야 한다 —
+   `scripts/position_center_comparison.py`의 `depo_center()`가 이미 하는 그대로: Gen0(post-drift)의
+   drift 시간 `t`에 `t_offset`을 더해 `convert_time2x`로 x를 역산하고, y/z는 Gen0 값을 그대로
+   쓴다. `_depo_density_shells()`에 `v_drift`/`t_offset`/`response_plane_x`를 새로 받아 이
+   공식으로 바꿨다.
+
+2. **Blob 쪽 (더 심각한, 이번에 새로 발견한 버그)**: `_load_and_undrift()`가
+   `wirecell.img.converter.undrift_blobs(cgraph, speed=v_drift, time=t_offset, x0=...)`를
+   호출하면서 `time=t_offset`을 넘기고 있었다. `undrift_blobs`의 실제 구현(`dt = pts[:,0] - time;
+   pts[:,0] = x0 - speed*dt`)을 뜯어보면 이건 `x = x0 - speed*(t - t_offset)`이 되어, **blob
+   위치에도 `+v_drift*t_offset`만큼의 오프셋이 실려버린다.** 하지만
+   `position_center_comparison.py`의 `blob_center()`는 blob의 `start`/`span`이 "이미 reco clock
+   위에 있다"는 이유로 **blob에는 아무 offset도 적용하지 않는다**(offset은 오직 depo 쪽에만
+   적용해 depo의 clock을 blob의 reco clock에 맞추는 용도). 같은 blob(`ident`로 매칭)에 대해
+   `pcc.blob_center()`와 `undrift_blobs(time=t_offset)`의 결과를 직접 비교해
+   `+503mm`(=`v_drift*t_offset`) 차이를 실측으로 확인했다. `_load_and_undrift()`를
+   `time=0`으로 고정해 blob에는 offset을 아예 적용하지 않도록 고쳤다(`t_offset` 파라미터
+   자체도 제거 — blob 변환에는 더 이상 쓰이지 않는다). 수정 후 같은 blob에 대해
+   `pcc.blob_center()`와의 x 차이는 ~1.6mm로 줄었는데, 이는 `blob_center()`가 slice
+   midpoint(`start+span/2`)를 쓰는 반면 `undrift_blobs`는 corner의 slice start를 그대로 쓰는
+   차이일 뿐(slice span=2000ns=3.2mm의 절반과 정확히 일치)이라 실질적인 오차가 아니다.
+
+즉 이전에는 "blob이 +503mm 밀려 있는 것"과 "depo가 (전혀 다른 이유로) 제자리에 있지 않은 것"이
+우연히 어느 정도 서로 다른 방향으로 어긋나 있었을 뿐, 결코 물리적으로 올바르게 겹쳐 있던 게
+아니었다. 두 버그를 각각 원인부터 고친 뒤 `point_depos_Y300Z100_one`/`test_point_depo`/
+`point_depos_Y300Z100_small`(개별 위치 디렉터리 다수) 데이터셋 모두에서 blob mesh와 depo
+mesh의 bounding box가 3축 모두에서 실제로 겹치고, blob별 nearest-depo 거리가 수 mm
+수준(`position_center_comparison.py`에서 이미 검증된 정확도와 일치)임을 실측으로 확인했다.
+
+## 10. [2026-07-20] Depo가 "Depos" 체크박스 on인데도 안 보이던 문제 -> 단일 n-sigma 타원체로 교체
+
+§9의 좌표 정합 수정 후에도 "Depos 체크박스는 기본 on인데 depo가 안 보인다"는 문제가 남아
+있었다. 원인은 `_depo_density_shells()`(k=1,2,3 3겹 shell)가 `add_mesh(..., scalars=
+"charge_density", opacity=[0.0, 0.7], ...)`로 **shell의 밀도 값 자체를 투명도에 매핑**하고
+있었다는 데 있었다: depo마다 전하(`q`)가 크게 다르고, 바깥쪽(k=3) shell은 정의상 피크 밀도의
+`exp(-4.5)`≈1.1%밖에 안 되므로, 전체 mesh에서 opacity 스케일의 min/max가 (가장 밝은 depo의
+가장 안쪽 shell) 대 (그 외 대부분) 사이에 걸리면서 실질적으로 대부분의 geometry가 opacity≈0
+근처로 매핑되어 사실상 안 보이게 된 것으로 보인다.
+
+사용자 요청대로 여러 겹의 밀도 shell 대신 **depo 중심에서 longitudinal(`L`)/transverse(`T`)
+방향으로 정확히 n-sigma(기본 3.0, `--depo-nsigma`) 범위의 3차원 타원체 하나**만 그리도록
+`_depo_density_shells()`를 `_depo_ellipsoids()`로 교체했다:
+- 좌표는 §9에서 고친 대로 그대로(Gen0 `t`+`t_offset` -> `convert_time2x`로 x, y/z는 Gen0).
+- 색은 `charge`(=`|q|`)로 칠하되(`cmap="plasma"`), **투명도는 데이터 범위에 무관한 고정값
+  `opacity=0.35`**로 바꿨다 — 어떤 파일이 오든 항상 보이는 것을 우선했다(밝기 그라데이션
+  대신 색상만으로 전하 크기를 구분).
+- `show_edges=True` 추가 — 반투명 타원체의 경계(위경도 그물눈)를 시각적으로 잡아준다.
+- `vtkGlyph3D` 벡터화 호출은 그대로 유지(shell 3겹 -> 1겹으로 줄어 오히려 더 가벼워짐).
+
+`point_depos_Y300Z100_small/X100_Y300_Z100` 데이터로 오프스크린 스크린샷을 직접 렌더링해
+depo 타원체(반투명 회색 돔, wireframe 경계)가 blob 슬라이스 위에 정확히 겹쳐서 보이는 것을
+육안으로 확인했다.

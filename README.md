@@ -26,7 +26,10 @@ wirecell-img-evaluation/
 │   ├── wirecell_sigproc_reference.md # OmnibusSigProc (deconvolution/ROI) pipeline reference (../wire-cell-toolkit/sigproc)
 │   ├── wires_geometry_walkthrough.md # PlaneGeometry/build_plane_geometries/face_sensitive_bounds walked through with a single point-depo example (utils/wires.py)
 │   ├── img_time_slicing_reference.md # How img's ISlice time-bin width (tick x tick_span) is determined
-│   ├── time_offset_calibration.md  # Root-cause analysis + calibration of BlobDepoFill's time_offset (scripts/time_offset.py, pdhd_time_offset_check.py)
+│   ├── time_offset_calibration.md  # Root-cause analysis of BlobDepoFill's time_offset: sim ductor/reframer + OmnibusSigProc time-shift mechanisms
+│   ├── time_offset_calibration_report.md # Calibration study log built on the above: prior-study review, new methodology, verification results, next steps
+│   ├── wirecell_params_jsonnet_reference.md # Jsonnet params/simparams inheritance, unit system, det.volumes/faces convention (../wire-cell-toolkit/cfg/pgrapher/{common,dune,experiment/pdhd})
+│   ├── wirecell_sim_field_reference.md # sim field breakdown: nimpacts/fluctuate/continuous/fixed/depo_toffset/ductor/reframer, with PDHD's computed values
 │   ├── geometry/          # Sensitive-volume and wire-geometry reference docs
 │   │   ├── wirecell_sensitive_volume.md # Full 3D (x,y,z) sensitive-volume bounds: wire store JSON vs. simparams.jsonnet det.volumes vs. AnodePlane.cxx
 │   │   └── wirecell_wires_reference.md  # wirecell.util.wires schema/persist: wire-geometry data model and file I/O
