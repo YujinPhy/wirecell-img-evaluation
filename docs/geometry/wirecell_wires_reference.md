@@ -2,7 +2,7 @@
 
 ## Summary
 
-wire geometry(와이어 기하 정보)의 데이터 구조에 대해 설명한 문서로 `wirecell.util.wires.persist`/`schema`코드의 docstring의 내용을 정리하였다. 또한 `utils/wires.py`가 이를 소비하는 방식을 정리한 문서다.
+wire geometry(와이어 기하 정보)의 데이터 구조와 WireCell 내에서 와이어에 대한 접근 방식에 대해 설명한 문서. 또한 `utils/wires.py`가 이를 소비하는 방식을 정리한 문서다.
 
 ## 1. wire geometry가 왜 필요한가
 
@@ -10,8 +10,8 @@ WCT에서 하나의 wire plane(U/V/W 중 하나)은 서로 평행한 여러 개�
 각 와이어는 검출기 안의 실제 3차원 직선(정확히는 두 끝점을 잇는 선분)이며, 그 와이어가 신호를 받는 pitch 방향 위치가 곧 "이 depo/전하가 어느 채널에 걸리는가"를 정하는 좌표축이다.
 각 평면에 속한 와이어들의 실제 3D 끝점 좌표가 있어야 하고, 그 좌표를 담고 있는 파일이 wire store(와이어 기하 JSON 파일)이며, 이를 읽고 다루는 파이썬 코드가 `wirecell.util.wires.schema`/`persist`다.
 
-## 2. `wire-cell-python/wirecell/util/wires/schema.py` — wire geometry의 데이터 모델
-모듈 자체 docstring은 이 계층 구조를 다음과 같이 명시한다.
+## 2. `wire-cell-python/wirecell/util/wires/schema.py` — wire geometry의 데이터 파일 구조
+모듈 자체 docstring에서 이 wire geometry의 데이터 구조를 다음과 같이 명시한다.
 ```
 Detector -> Anode -> Face -> Plane -> Wire -> Point
 ```
@@ -32,15 +32,13 @@ Detector -> Anode -> Face -> Plane -> Wire -> Point
 
 > `Wire.tail`/`Wire.head`는 `Point` 객체 자체가 아니라 `Store.points` 리스트의 인덱스다.
 > 실제 좌표를 얻으려면 `store.points[wire.tail]`, `store.points[wire.head]`처럼 한 단계 더 조회해야 한다.
-> `Store`가 이런 간접 참조(인덱스) 구조를 쓰는 이유는 docstring에 명시돼 있는데, 여러 객체가 같은 대상(예: 같은 `Point`)을 서로 다른 문맥에서 함께 참조할 수 있게 하면서도 각 객체가 별도의 "포인터"를 직접 들고 다닐 필요가 없게 하기 위해서다.
+> `Store`가 이런 간접 참조(인덱스) 구조를 쓰는 이유는 여러 객체가 같은 대상(예: 같은 `Point`)을 서로 다른 문맥에서 함께 참조할 수 있게 하면서도 각 객체가 별도의 "포인터"를 직접 들고 다닐 필요가 없게 하기 위해서다.
 
 ### 2.2 정렬 순서 보장
 docstring은 두 가지 정렬 규칙을 명시적으로 보장한다.
 
-- `face.planes`는 전하가 드리프트하는 순서, 즉 U/V/W 순서로 정렬되어 있다.
-	- `face.planes`를 순서대로 순회하면 자동으로 평면 0, 1, 2가 U, V, W에 대응한다.
-- `plane.wires`는 pitch 방향으로 증가하는 순서로 정렬되어 있으며, 이 순서는 와이어 방향 벡터와 pitch 방향 벡터의 외적이 그 평면에 수직이면서 표류 방향과 반대 방향을 가리키는 관례를 따른다.
-	- `plane.wires`를 순서대로 읽으면 자동으로 pitch가 증가하는 순서가 된다.
+- `face.planes`는 전하가 드리프트하는 순서, 즉 U/V/W 순서로 정렬되어 있다. 순서대로 순회하면 자동으로 평면 0, 1, 2가 U, V, W에 대응한다.
+- `plane.wires`는 pitch 방향으로 증가하는 순서로 정렬되어 있으며, 이 순서는 와이어 방향 벡터와 pitch 방향 벡터의 외적이 그 평면에 수직이면서 표류 방향과 반대 방향을 가리키는 관례를 따른다. 순서대로 읽으면 자동으로 pitch가 증가하는 순서가 된다.
 
 ### 2.3 `ident`의 의미
 대부분의 객체가 `ident` 필드를 갖으며 유일한 값으로 취급된다.
@@ -106,14 +104,54 @@ def load(name):
 
 그래서 `persist.load()`에 `.json.bz2` 경로를 그대로 넘겨도 별도 압축 해제 없이 바로 `Store` 객체를 얻을 수 있다.
 
+## 4. WireCell Wire Index Convention — `Correction` 보정 체인
+
+`wirecell.util.wires.persist.load()`는 wire store JSON 파일에 적힌 `plane.wires` 순서와 좌표를 그대로 로드한다. 하지만 실제 WireCell C++ 파이프라인이 그 파일을 읽어 `AnodePlane`/`Pimpos`를 만들 때는 기본적으로 **wire 순서를 재정렬하고 좌표까지 일부 이동시키는 보정을 거친다.** 따라서 처리과정에서 index `i`가 가리키는 "i번째 wire"는 이 **보정 이후**의 순서/좌표 기준이지, JSON 파일의 원본 순서/좌표 기준이 아니다.
+
+### 4.1 `Correction` 레벨 (`util/inc/WireCellUtil/WireSchema.h:161-197`)
+
+```cpp
+enum struct Correction { empty, load, order, direction, pitch, ncorrections };
+```
+
+각 레벨은 누적 적용된다(`load < order < direction < pitch`).
+
+| 레벨 | 이름 | 하는 일 |
+|---|---|---|
+| 1 | `load` | 파일 그대로. 아무 보정 없음. |
+| 2 | `order` | `plane_fixer_order`: wire-in-plane(WIP) 순서와 각 wire의 (tail,head) 끝점 순서를 재정렬. |
+| 3 | `direction` | `plane_fixer_direction`: 모든 wire를 각자의 중심을 축으로 회전시켜 정확히 평행하게 맞춤(공통 방향 = 원래 wire 방향들의 평균을 Y-Z 평면에 투영한 값). wire 길이와 중심은 그대로 유지. |
+| 4 | `pitch` | `plane_fixer_pitch`: 공통 pitch 방향을 따라 wire들을 이동시켜 **균등 간격**으로 만듦(공통 pitch = 모든 wire 쌍의 pitch를 Y-Z 평면에 투영해 평균한 값). WIP `= nwires/2`인 중앙 wire의 (Y,Z)만 고정하고 X는 전체 wire 중심 X의 평균으로 맞춤. |
+
+### 4.2 `order`(`plane_fixer_order`) 상세 — wire 순서가 어떻게 정해지는가 (`util/src/WireSchema.cxx:154-256`)
+
+1. **정렬 축 결정** (`wire_order_axis`, `:154-163`): `plane.wires[0]`(그 평면의 첫 wire)의 방향 벡터를 보고, `|wdir.z()| > 0.9999`(거의 Z축과 평행, 즉 거의 수직에 가까운 wire)이면 **Y** 좌표 기준 정렬(`axis=1`), 아니면 **Z** 좌표 기준 정렬(`axis=2`).
+2. **원점/방향 산출** (`:195-215`): 모든 wire 중심의 (선택된 축 기준) 최소/최대를 찾아 그 둘의 중점을 원점으로, 최소→최대 방향을 단위벡터로 삼음.
+3. **투영 후 정렬** (`:217-239`): 각 wire 중심을 그 방향으로 투영한 값(`pos[]`)을 계산하고, `pos` 오름차순으로 `plane.wires`를 재배열. → **"pitch가 증가하는 순서"라는 2.2절의 보장은 이 단계(`order` 이상 레벨)를 거쳐야 성립하며, JSON 원본이 이미 그 순서라는 보장은 스키마 차원에서 없다** (실제로 이 프로젝트가 쓰는 wire store 파일에서 raw 순서와 이 보정 후 순서가 다름을 이번 세션에 직접 확인했다 — 4.4절 참고).
+4. **끝점 방향 통일** (`:241-255`): axis가 Y 정렬이면 `head.z() > tail.z()`일 때 tail/head를 스왑, Z 정렬이면 `head.y() < tail.y()`일 때 스왑 — "증가하는 WIP 방향 == pitch 벡터 증가 방향"이라는 관례(헤더 주석 `:179-181`)를 만족시키기 위함.
+
+### 4.3 `direction`/`pitch` 상세 — 좌표 자체가 이동한다 (`util/src/WireSchema.cxx:259-350`)
+
+- `plane_fixer_direction`(`:259-284`): 모든 wire 방향의 평균(Y-Z 평면 투영)을 공통 방향으로 잡고, 각 wire를 **자신의 중심을 축으로 회전**시켜 그 공통 방향과 정확히 평행하게 만든다. 중심 위치와 길이는 보존.
+- `plane_fixer_pitch`(`:287-350`): 모든 인접 wire 쌍의 pitch(`ray_pitch`)를 평균해 "공통 pitch 크기/방향"을 구한 뒤, 중앙 wire(WIP=`nwires/2`) 하나만 고정하고 **나머지 wire 전부를 그 공통 pitch 방향으로 밀어서 균등 간격 격자에 맞춘다** (`wire.tail/head += delta_pitch*pdir`, `:341-347`). 즉 이 레벨은 단순 재배열이 아니라 **wire 끝점 좌표 자체를 원본 JSON 값에서 이동시킨다.**
+
+### 4.4 이 프로젝트에 실제로 적용되는 레벨과 그 영향
+
+- `gen/src/WireSchemaFile.cxx:23-25,32`: `correction` config의 기본값은 `(int)WireSchema::Correction::pitch`(레벨 4, 최대치)이며, 현재 이 프로젝트의 어떤 jsonnet도 `correction`을 override하지 않는다— 즉 **`order` + `direction` + `pitch` 세 보정이 모두 누적 적용된 상태**가 실제 C++ 파이프라인이 쓰는 wire 기하다.
+- `gen/src/AnodePlane.cxx:203-233`: `ws_store.wires(ws_plane)`로 얻은(이 보정된) wire 목록의 `wires[0]`/`wires[nwires-1]` 중심을 `wire_pitch_dirs`(역시 보정된 pitch 방향)에 투영해 `pitchmin`/`pitchmax`를 구하고, `Pimpos(nwires, pitchmin, pitchmax, ...)`를 만든다. `Pimpos::region_binning()`(`util/src/Pimpos.cxx:16-28`)은 그 범위를 `nwires`개의 **균등** bin으로 나누므로, `pitch` 보정(균등 간격 강제)이 이미 적용되어 있어야 `region_binning()`의 bin index `i`가 `wires()[i]`와 정확히 대응한다는 전제가 성립한다.
+
 ---
 
 ## Related Documents
 
 * **Parent docs:**
     - `wire-cell-python/wirecell/util/wires/schema.py`, `persist.py`: Source Scripts
-* **Child docs:** 없음.
-
-* **Sibling docs:** 
-    - `utils/wires.py`: 와이어 데이터 구조를 로드하고, 위의 일부 기능을 간단히 포팅한 스크립트
+    - `wire-cell-toolkit/util/inc/WireCellUtil/WireSchema.h`, `util/src/WireSchema.cxx`: `Correction` 보정 체인의 C++ 원본.
+    - `wire-cell-toolkit/gen/src/WireSchemaFile.cxx`, `gen/src/AnodePlane.cxx`, `util/src/Pimpos.cxx`: 보정된 wire 목록으로 `Pimpos`/`region_binning()`을 만드는 실제 소비처.
+* **Child docs:**
+    - `utils/wires.py`: 와이어 데이터 파일 로드와 위의 일부 기능을 간단히 포팅한 스크립트.
+        - `build_plane_geometries()`가 호출하는 `_apply_wirecell_corrections()`가 `order`+`direction`+`pitch` 보정 재현
+        - `PlaneGeometry`는 wire 방향 평균 기반으로 `pitch_axis`/`wire_axis`를 산출   
     - `docs/geometry/wires_geometry_walkthrough.md`: `utils/wires.py`의 작동 예시를 정리한 문서
+* **Sibling docs:** 
+
