@@ -8,7 +8,6 @@ local wc = import 'wirecell.jsonnet';
 local io = import 'pgrapher/common/fileio.jsonnet';
 local tools_maker = import 'pgrapher/common/tools.jsonnet';
 
-local util = import 'pgrapher/experiment/pdhd/funcs.jsonnet';
 local params = import 'pgrapher/experiment/pdhd/simparams.jsonnet';
 
 function(
@@ -216,6 +215,77 @@ local reco_fork(n) = g.pipeline([
 );
 
 
+local reframers = [
+    g.pnode({
+        type: 'Reframer',
+        name: 'truth_reframer-'+tools.anodes[n].name,
+        data: {
+            anode: wc.tn(tools.anodes[n]),
+            tags: ['deposplat%d' % n],
+            fill: 0.0,
+            tbin: params.sim.reframer.tbin,
+            toffset: 0,
+            nticks: params.sim.reframer.nticks,
+        },
+    }, nin=1, nout=1) for n in std.range(0, std.length(tools.anodes) - 1)];
+
+// Same as util.splat() (pgrapher/experiment/pdhd/funcs.jsonnet) but without its
+// internal DepoBagger stage: this file's depo stream is already bagged into
+// IDepoSet once, up front, by `bagger` (see below), so re-bagging per-anode here
+// would feed an IDepo-typed input from an IDepoSet-typed port.
+local deposplat_node(anode) =
+    local apaid = anode.data.ident;
+    local sp = g.pnode({
+        type: 'DepoFluxSplat',
+        name: apaid,
+        data: {
+            anode: wc.tn(anode),
+            field_response: wc.tn(tools.field), // for speed and origin
+            sparse: true,
+            tick: params.daq.tick,
+            window_start: params.sim.ductor.start_time,
+            window_duration: params.sim.ductor.readout_time,
+            reference_time: 0.0,
+            // Run wirecell-gen morse-* to find these numbers that match the extra
+            // spread the sigproc induces.
+            "smear_long": [
+                2.691862363980221,
+                2.6750200122535057,
+                2.7137567141154055
+            ],
+            "smear_tran": [
+                0.7377218875719689,
+                0.7157764520393882,
+                0.13980698710556544
+            ]
+        },
+    }, nin=1, nout=1, uses=[anode, tools.field]);
+    local rt = g.pnode({
+        type: 'Retagger',
+        name: apaid,
+        data: {
+            tag_rules: [{
+                frame: { ".*": "deposplat%d" % apaid },
+                merge: { ".*": "deposplat%d" % apaid },
+            }],
+        },
+    }, nin=1, nout=1);
+    g.pipeline([sp, rt], "%s-%s" % [sp.name, rt.name]);
+
+local deposplats = [deposplat_node(tools.anodes[n]) for n in std.range(0, std.length(tools.anodes) - 1)] ;
+local truth_fork = [
+  g.pipeline([
+               deposplats[n],
+               reframers[n],
+            //    hio_truth[n],
+               magnifyio.truth_pipe[n],
+               g.pnode({ type: 'DumpFrames', name: 'truth_fork%d'%n  }, nin=1, nout=0)
+             ],
+             'truth_fork%d' % n)
+  for n in std.range(0, std.length(tools.anodes) - 1)
+];
+
+
 local tag_rules = {
     frame: {
         '.*': 'framefanin',
@@ -246,9 +316,10 @@ local drifted_depo_sink(name, n) = g.pnode({
 
 
 local per_anode_pipe(n) =
-    local dsf = dsout("bdf-%d" %n, 3);
+    local dsf = dsout("bdf-%d" %n, 4);
     local drifted_depos = drifted_depo_sink("drfited-%d" %n, n);
     local reco = reco_fork(n);
+    local truth = truth_fork[n];
     local cf = img_maker.cluster_fanout("bdf-%d"%tools.anodes[n].data.ident, 2);
     local bdf = img_maker.blob_depo_fill(tools.anodes[n], "bdf-%d"%tools.anodes[n].data.ident);
     local recs = img_maker.sink(tools.anodes[n], "%d"%tools.anodes[n].data.ident);
@@ -256,11 +327,12 @@ local per_anode_pipe(n) =
     g.intern(
         innodes=[dsf],
         outnodes=[],
-        centernodes=[drifted_depos, reco,cf,bdf,recs,bdfs,],
+        centernodes=[drifted_depos, reco,truth,cf,bdf,recs,bdfs,],
         edges = [
             g.edge(dsf, reco, 0, 0),
             g.edge(dsf, bdf, 1, 1),
             g.edge(dsf, drifted_depos, 2, 0),
+            g.edge(dsf, truth, 3, 0),
             g.edge(reco, cf, 0, 0),
             g.edge(cf, recs, 0, 0),
             g.edge(cf, bdf, 1, 0),
